@@ -1,0 +1,43 @@
+# Hov3x Chrome Extension - Git Ignore File
+
+# API Key Configuration (NEVER COMMIT THIS!)
+config.js
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor/IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Build/Package Files
+*.zip
+*.crx
+*.pem
+dist/
+build/
+
+# Node modules (if you add any build tools later)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Chrome extension debugging
+.web-extension-id

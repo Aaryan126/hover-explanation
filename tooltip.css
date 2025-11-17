@@ -1,0 +1,78 @@
+/* ============================================
+   Hov3x Tooltip Styles
+   Clean, minimal tooltip UI
+   ============================================ */
+
+/* Base tooltip container */
+#hov3x-tooltip {
+  position: absolute;
+  z-index: 2147483647; /* Maximum z-index to stay on top */
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
+              0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 350px;
+  min-width: 200px;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  word-wrap: break-word;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hidden state */
+.hov3x-tooltip-hidden {
+  opacity: 0;
+  transform: scale(0.95) translateY(-5px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Visible state */
+.hov3x-tooltip-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  visibility: visible;
+}
+
+/* Loading state styling */
+#hov3x-tooltip:has-text("Loading") {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #hov3x-tooltip {
+    max-width: 280px;
+    font-size: 13px;
+    padding: 10px 14px;
+  }
+}
+
+/* Print mode - hide tooltip */
+@media print {
+  #hov3x-tooltip {
+    display: none !important;
+  }
+}
+
+/* Accessibility - respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  #hov3x-tooltip {
+    transition: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  #hov3x-tooltip {
+    background: linear-gradient(135deg, #4c5fd7 0%, #5e3d83 100%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+                0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+}

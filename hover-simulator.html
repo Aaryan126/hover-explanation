@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hov3x - Hover Simulator (Standalone Testing)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 968px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .test-content {
+            background: #f7f9fc;
+            padding: 30px;
+            border-radius: 12px;
+            line-height: 1.8;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .test-content p {
+            margin-bottom: 20px;
+        }
+
+        .hoverable {
+            cursor: help;
+            position: relative;
+            border-bottom: 2px dotted #667eea;
+            transition: all 0.2s;
+        }
+
+        .hoverable:hover {
+            background: #f0f4ff;
+            border-bottom-color: #764ba2;
+        }
+
+        /* Tooltip styles (matching tooltip.css) */
+        #hov3x-tooltip {
+            position: absolute;
+            z-index: 2147483647;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+            max-width: 350px;
+            min-width: 200px;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            word-wrap: break-word;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            opacity: 0;
+            transform: scale(0.95) translateY(-5px);
+            visibility: hidden;
+        }
+
+        #hov3x-tooltip.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            visibility: visible;
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f7f9fc;
+            border-radius: 12px;
+        }
+
+        .stats h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #8899a6;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #8899a6;
+            font-size: 13px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .cache-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .cache-item {
+            padding: 8px;
+            background: white;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            font-size: 13px;
+            border: 1px solid #e1e8ed;
+        }
+
+        .instructions {
+            background: #fff9e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .instructions strong {
+            color: #996600;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.active {
+            background: #27ae60;
+            box-shadow: 0 0 8px #27ae60;
+        }
+
+        .status-indicator.inactive {
+            background: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Hov3x Hover Simulator</h1>
+        <p>Standalone testing environment - no browser extension loading required!</p>
+    </div>
+
+    <div class="container">
+        <!-- Left Panel: Test Content -->
+        <div class="panel">
+            <h2>📄 Test Content</h2>
+
+            <div class="instructions">
+                <strong>Instructions:</strong> Hover over any highlighted technical term below to see AI-powered explanations. This simulates exactly how the extension works!
+            </div>
+
+            <div class="test-content">
+                <p>
+                    In computer science, an <span class="hoverable">algorithm</span> is a finite sequence of instructions used to solve problems. Many modern applications rely on <span class="hoverable">machine learning</span> models that can identify patterns in data.
+                </p>
+
+                <p>
+                    <span class="hoverable">Neural networks</span> are particularly effective for complex tasks. They use concepts from <span class="hoverable">calculus</span> and <span class="hoverable">linear algebra</span> to optimize their parameters through <span class="hoverable">backpropagation</span>.
+                </p>
+
+                <p>
+                    Web development often involves <span class="hoverable">APIs</span> (Application Programming Interfaces) which enable different software systems to communicate. Modern frameworks use <span class="hoverable">asynchronous</span> programming to handle multiple operations simultaneously.
+                </p>
+
+                <p>
+                    Data scientists work with concepts like <span class="hoverable">latent space</span>, <span class="hoverable">embeddings</span>, and <span class="hoverable">dimensionality reduction</span>. These techniques help manage high-dimensional data effectively.
+                </p>
+
+                <p>
+                    <span class="hoverable">Recursion</span> is a programming technique where a function calls itself. It's commonly used in <span class="hoverable">tree traversal</span> and <span class="hoverable">graph algorithms</span>.
+                </p>
+
+                <p style="color: #8899a6; font-size: 14px; margin-top: 30px;">
+                    💡 <strong>Tip:</strong> Hover over any blue underlined term to see its explanation. The first time will call the Gemini API, subsequent hovers will load from cache instantly!
+                </p>
+            </div>
+        </div>
+
+        <!-- Right Panel: Controls & Stats -->
+        <div class="panel">
+            <h2>⚙️ Settings & Statistics</h2>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>
+                        <span class="status-indicator active"></span>
+                        System Status
+                    </label>
+                    <div style="padding: 10px; background: #f0fff4; border-radius: 6px; color: #27ae60;">
+                        ✅ API Connected & Ready
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Hover Delay (ms)</label>
+                    <input type="number" id="hover-delay" value="200" min="0" max="2000">
+                </div>
+
+                <div class="control-group">
+                    <label>Cache Expiry (days)</label>
+                    <input type="number" id="cache-expiry" value="7" min="1" max="365">
+                </div>
+
+                <button onclick="clearCache()">Clear All Cache</button>
+            </div>
+
+            <div class="stats">
+                <h3>📊 Live Statistics</h3>
+                <div class="stat-item">
+                    <span class="stat-label">API Calls Made</span>
+                    <span class="stat-value" id="api-calls">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Cache Hits</span>
+                    <span class="stat-value" id="cache-hits">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Terms Cached</span>
+                    <span class="stat-value" id="cached-count">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Response Time</span>
+                    <span class="stat-value" id="avg-time">0ms</span>
+                </div>
+            </div>
+
+            <div class="stats">
+                <h3>💾 Cached Terms</h3>
+                <div class="cache-list" id="cache-list">
+                    <div style="text-align: center; color: #8899a6; padding: 20px;">
+                        No terms cached yet. Hover over a term above!
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip element -->
+    <div id="hov3x-tooltip"></div>
+
+    <script src="config.js"></script>
+    <script>
+        // Configuration
+        const HOVER_DELAY_MS = 200;
+        const MIN_WORD_LENGTH = 3;
+        const CACHE_EXPIRY_DAYS = 7;
+        const CACHE_PREFIX = "hov3x_explanation:";
+
+        let API_KEY;
+        let hoverTimeout = null;
+        let tooltip = null;
+        let cache = {};
+        let stats = {
+            apiCalls: 0,
+            cacheHits: 0,
+            responseTimes: []
+        };
+
+        // Load API key
+        if (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_API_KEY) {
+            API_KEY = CONFIG.GEMINI_API_KEY;
+        }
+
+        // Initialize
+        window.onload = function() {
+            tooltip = document.getElementById('hov3x-tooltip');
+            loadCacheFromStorage();
+            attachHoverListeners();
+            updateStats();
+        };
+
+        function attachHoverListeners() {
+            const hoverables = document.querySelectorAll('.hoverable');
+
+            hoverables.forEach(element => {
+                element.addEventListener('mouseenter', (e) => handleMouseEnter(e, element));
+                element.addEventListener('mouseleave', handleMouseLeave);
+                element.addEventListener('mousemove', handleMouseMove);
+            });
+        }
+
+        function handleMouseEnter(event, element) {
+            const term = element.textContent.trim();
+
+            clearTimeout(hoverTimeout);
+
+            hoverTimeout = setTimeout(() => {
+                handleWordHover(term, event);
+            }, parseInt(document.getElementById('hover-delay').value) || HOVER_DELAY_MS);
+        }
+
+        function handleMouseLeave() {
+            clearTimeout(hoverTimeout);
+            hideTooltip();
+        }
+
+        function handleMouseMove(event) {
+            if (tooltip.classList.contains('visible')) {
+                positionTooltip(event.clientX, event.clientY);
+            }
+        }
+
+        async function handleWordHover(term, event) {
+            console.log(`[Hov3x] Hovering over: "${term}"`);
+
+            // Check cache first
+            const cached = getCachedExplanation(term);
+            if (cached) {
+                console.log(`[Hov3x] Cache hit for: "${term}"`);
+                showTooltip(cached.text, event.clientX, event.clientY);
+                stats.cacheHits++;
+                updateStats();
+                return;
+            }
+
+            // Show loading
+            showTooltip("Loading...", event.clientX, event.clientY);
+
+            try {
+                const startTime = Date.now();
+                const explanation = await fetchGeminiExplanation(term);
+                const elapsed = Date.now() - startTime;
+
+                // Cache the result
+                cacheExplanation(term, explanation);
+
+                // Update tooltip
+                updateTooltip(explanation);
+
+                // Update stats
+                stats.apiCalls++;
+                stats.responseTimes.push(elapsed);
+                updateStats();
+
+                console.log(`[Hov3x] Fetched and cached: "${term}" (${elapsed}ms)`);
+
+            } catch (error) {
+                console.error(`[Hov3x] Error:`, error);
+                updateTooltip(`Error: ${error.message}`);
+            }
+        }
+
+        async function fetchGeminiExplanation(term) {
+            if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+                throw new Error("API key not configured. Please add your key to config.js");
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
+
+            const body = {
+                contents: [{
+                    parts: [{
+                        text: `Explain this technical term in 1-2 simple, clear sentences: "${term}"`
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 300,
+                    candidateCount: 1,
+                    stopSequences: []
+                }
+            };
+
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("API Error Response:", errorText);
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("Full API Response:", data);
+
+            // Handle the response - check for content.parts
+            if (data.candidates && data.candidates[0]) {
+                const candidate = data.candidates[0];
+
+                // Check if we have content with parts
+                if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+                    const text = candidate.content.parts[0].text;
+                    if (text) {
+                        return text.trim();
+                    }
+                }
+
+                // If no text in parts, but finishReason is MAX_TOKENS, the response was cut off
+                if (candidate.finishReason === "MAX_TOKENS") {
+                    throw new Error("Response was truncated. Try increasing maxOutputTokens.");
+                }
+
+                throw new Error(`No text content in response. Finish reason: ${candidate.finishReason}`);
+            }
+
+            throw new Error("Invalid response format");
+        }
+
+        function getCachedExplanation(term) {
+            const key = term.toLowerCase();
+            return cache[key] || null;
+        }
+
+        function cacheExplanation(term, explanation) {
+            const key = term.toLowerCase();
+            cache[key] = {
+                text: explanation,
+                timestamp: Date.now()
+            };
+
+            saveCacheToStorage();
+            updateCacheList();
+        }
+
+        function saveCacheToStorage() {
+            try {
+                localStorage.setItem('hov3x_cache', JSON.stringify(cache));
+            } catch (e) {
+                console.warn("Could not save to localStorage");
+            }
+        }
+
+        function loadCacheFromStorage() {
+            try {
+                const saved = localStorage.getItem('hov3x_cache');
+                if (saved) {
+                    cache = JSON.parse(saved);
+                    updateCacheList();
+                }
+            } catch (e) {
+                console.warn("Could not load from localStorage");
+            }
+        }
+
+        function clearCache() {
+            if (confirm("Are you sure you want to clear all cached explanations?")) {
+                cache = {};
+                saveCacheToStorage();
+                updateStats();
+                updateCacheList();
+                console.log("[Hov3x] Cache cleared");
+            }
+        }
+
+        function showTooltip(text, x, y) {
+            tooltip.textContent = text;
+            tooltip.classList.add('visible');
+            positionTooltip(x, y);
+        }
+
+        function updateTooltip(text) {
+            tooltip.textContent = text;
+        }
+
+        function hideTooltip() {
+            tooltip.classList.remove('visible');
+        }
+
+        function positionTooltip(x, y) {
+            const offset = 15;
+            let left = x + offset;
+            let top = y + offset;
+
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (x + tooltipRect.width + offset > viewportWidth) {
+                left = x - tooltipRect.width - offset;
+            }
+
+            if (y + tooltipRect.height + offset > viewportHeight) {
+                top = y - tooltipRect.height - offset;
+            }
+
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        }
+
+        function updateStats() {
+            document.getElementById('api-calls').textContent = stats.apiCalls;
+            document.getElementById('cache-hits').textContent = stats.cacheHits;
+            document.getElementById('cached-count').textContent = Object.keys(cache).length;
+
+            if (stats.responseTimes.length > 0) {
+                const avg = stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length;
+                document.getElementById('avg-time').textContent = `${Math.round(avg)}ms`;
+            }
+        }
+
+        function updateCacheList() {
+            const cacheList = document.getElementById('cache-list');
+            const terms = Object.keys(cache);
+
+            if (terms.length === 0) {
+                cacheList.innerHTML = '<div style="text-align: center; color: #8899a6; padding: 20px;">No terms cached yet. Hover over a term above!</div>';
+                return;
+            }
+
+            cacheList.innerHTML = terms.map(term =>
+                `<div class="cache-item">${term}</div>`
+            ).join('');
+        }
+    </script>
+</body>
+</html>

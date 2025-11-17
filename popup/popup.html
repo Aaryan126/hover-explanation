@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hov3x - AI Tooltip Explanations</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 350px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+      padding: 0;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      color: #ffffff;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 400;
+    }
+
+    .content {
+      padding: 20px;
+      background: #ffffff;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .stat-card {
+      background: #f7f9fc;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #e1e8ed;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #8899a6;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .button {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 10px;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button-secondary {
+      background: #f7f9fc;
+      color: #667eea;
+      border: 1px solid #e1e8ed;
+    }
+
+    .button-secondary:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .status {
+      padding: 10px 12px;
+      background: #f0f4ff;
+      border-left: 3px solid #667eea;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 10px;
+    }
+
+    .status.error {
+      background: #fff0f0;
+      border-left-color: #e74c3c;
+      color: #c0392b;
+    }
+
+    .status.success {
+      background: #f0fff4;
+      border-left-color: #27ae60;
+      color: #1e8449;
+    }
+
+    .api-key-status {
+      font-size: 12px;
+      padding: 8px 12px;
+      background: #fff9e6;
+      border-radius: 6px;
+      border: 1px solid #ffe066;
+      color: #996600;
+      margin-top: 10px;
+    }
+
+    .api-key-status.configured {
+      background: #f0fff4;
+      border-color: #7bed9f;
+      color: #2d7a4f;
+    }
+
+    .footer {
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .footer a {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Hov3x</h1>
+    <p>AI-Powered Tooltip Explanations</p>
+  </div>
+
+  <div class="content">
+    <div class="section">
+      <div class="section-title">Cache Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="cached-count">0</span>
+          <span class="stat-label">Cached Terms</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="cache-size">0 KB</span>
+          <span class="stat-label">Storage Used</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Actions</div>
+      <button class="button" id="refresh-stats">Refresh Statistics</button>
+      <button class="button button-secondary" id="clear-cache">Clear All Cache</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Status</div>
+      <div class="status" id="status-message">
+        Extension is active. Hover over any word to see explanations.
+      </div>
+      <div class="api-key-status" id="api-key-status">
+        API Key: Not configured
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Powered by <a href="https://ai.google.dev/" target="_blank">Gemini 2.5 Flash</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

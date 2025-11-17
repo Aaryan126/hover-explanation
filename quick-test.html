@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hov3x API Quick Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #8899a6;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .status-card {
+            background: #f7f9fc;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #8899a6;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .test-area {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f7f9fc;
+            border-radius: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input {
+            flex: 1;
+            padding: 14px 18px;
+            font-size: 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .examples {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            padding: 6px 12px;
+            background: white;
+            color: #667eea;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .result-area {
+            margin-top: 25px;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #e1e8ed;
+            min-height: 100px;
+        }
+
+        .result-area.loading {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .result-area.success {
+            background: #f0fff4;
+            border-color: #27ae60;
+        }
+
+        .result-area.error {
+            background: #fff0f0;
+            border-color: #e74c3c;
+        }
+
+        .result-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .result-content {
+            color: #333;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e1e8ed;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .diagnostics {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7f9fc;
+            border-radius: 12px;
+        }
+
+        .diagnostics h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .diagnostics ul {
+            list-style: none;
+        }
+
+        .diagnostics li {
+            padding: 8px 0;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e1e8ed;
+            text-align: center;
+            color: #8899a6;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Hov3x API Test</h1>
+        <p class="subtitle">Test your Gemini API connection without loading as a Chrome extension</p>
+
+        <div class="status-bar">
+            <div class="status-card">
+                <div class="status-label">Configuration</div>
+                <div class="status-value" id="config-status">Checking...</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">API Status</div>
+                <div class="status-value" id="api-status">Ready</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">Tests Run</div>
+                <div class="status-value" id="test-count">0</div>
+            </div>
+        </div>
+
+        <div class="test-area">
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="term"
+                    placeholder="Enter a technical term (e.g., 'algorithm', 'neural network')"
+                    value="algorithm"
+                    onkeypress="if(event.key === 'Enter') testExplanation()"
+                >
+                <button onclick="testExplanation()" id="test-btn">
+                    Get Explanation
+                </button>
+            </div>
+
+            <div class="examples">
+                <strong style="margin-right: 10px; color: #8899a6; font-size: 13px;">Try these:</strong>
+                <button class="example-btn" onclick="tryExample('algorithm')">algorithm</button>
+                <button class="example-btn" onclick="tryExample('neural network')">neural network</button>
+                <button class="example-btn" onclick="tryExample('recursion')">recursion</button>
+                <button class="example-btn" onclick="tryExample('API')">API</button>
+                <button class="example-btn" onclick="tryExample('latent space')">latent space</button>
+            </div>
+
+            <div class="result-area" id="result">
+                <div class="result-content">
+                    👆 Enter a technical term and click "Get Explanation" to test the Gemini API.
+                </div>
+            </div>
+        </div>
+
+        <div class="diagnostics">
+            <h3>🔍 Diagnostics</h3>
+            <ul>
+                <li id="diag-config"><span class="icon">⏳</span> Configuration check...</li>
+                <li id="diag-api"><span class="icon">⏳</span> API connection...</li>
+                <li id="diag-response"><span class="icon">⏳</span> Response parsing...</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>This test verifies your Gemini API configuration without needing to load the Chrome extension.</p>
+            <p style="margin-top: 10px;">✅ If this works, your extension setup is correct!</p>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        let testCount = 0;
+        let API_KEY;
+
+        // Load API key from config
+        window.onload = function() {
+            if (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_API_KEY) {
+                API_KEY = CONFIG.GEMINI_API_KEY;
+
+                if (API_KEY === "YOUR_API_KEY_HERE") {
+                    updateDiag('diag-config', '❌', 'API key not configured in config.js');
+                    document.getElementById('config-status').innerHTML = '❌ Not configured';
+                    document.getElementById('api-status').innerHTML = '⏸️ Paused';
+                } else {
+                    updateDiag('diag-config', '✅', `API key configured (${API_KEY.substring(0, 15)}...)`);
+                    document.getElementById('config-status').innerHTML = '✅ Configured';
+                }
+            } else {
+                updateDiag('diag-config', '❌', 'Could not load config.js');
+                document.getElementById('config-status').innerHTML = '❌ Error';
+            }
+        };
+
+        function tryExample(term) {
+            document.getElementById('term').value = term;
+            testExplanation();
+        }
+
+        function updateDiag(id, icon, message) {
+            document.getElementById(id).innerHTML = `<span class="icon">${icon}</span> ${message}`;
+        }
+
+        async function testExplanation() {
+            const term = document.getElementById('term').value.trim();
+            const resultArea = document.getElementById('result');
+            const testBtn = document.getElementById('test-btn');
+
+            if (!term) {
+                resultArea.className = 'result-area error';
+                resultArea.innerHTML = '<div class="result-header">❌ Error</div><div class="result-content">Please enter a term</div>';
+                return;
+            }
+
+            if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+                resultArea.className = 'result-area error';
+                resultArea.innerHTML = '<div class="result-header">❌ Configuration Error</div><div class="result-content">Please add your Gemini API key to config.js</div>';
+                return;
+            }
+
+            // Update UI - loading state
+            resultArea.className = 'result-area loading';
+            resultArea.innerHTML = '<div class="result-header"><span class="loading-spinner"></span>Loading...</div><div class="result-content">Fetching explanation from Gemini API...</div>';
+            testBtn.disabled = true;
+            document.getElementById('api-status').innerHTML = '⏳ Fetching...';
+            updateDiag('diag-api', '⏳', 'Calling Gemini API...');
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
+
+            const body = {
+                contents: [{
+                    parts: [{
+                        text: `Explain this technical term in 1-2 simple, clear sentences: "${term}"`
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 300,
+                    candidateCount: 1,
+                    stopSequences: []
+                }
+            };
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+
+                const elapsed = Date.now() - startTime;
+                updateDiag('diag-api', '✅', `API connection successful (${elapsed}ms)`);
+
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    throw new Error(`API error: ${response.status} - ${errorData}`);
+                }
+
+                const data = await response.json();
+                console.log("Full API Response:", data);
+
+                if (data.candidates && data.candidates[0]) {
+                    const candidate = data.candidates[0];
+
+                    // Check if we have content with parts
+                    if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+                        const text = candidate.content.parts[0].text;
+                        if (text) {
+                            const explanation = text.trim();
+
+                            resultArea.className = 'result-area success';
+                            resultArea.innerHTML = `
+                                <div class="result-header">✅ Success! (${elapsed}ms)</div>
+                                <div class="result-content">${explanation}</div>
+                            `;
+
+                            document.getElementById('api-status').innerHTML = '✅ Working';
+                            updateDiag('diag-response', '✅', `Response parsed successfully`);
+
+                            testCount++;
+                            document.getElementById('test-count').innerHTML = testCount;
+                            return;
+                        }
+                    }
+
+                    // If no text in parts, check finish reason
+                    if (candidate.finishReason === "MAX_TOKENS") {
+                        throw new Error("Response was truncated due to token limit.");
+                    }
+
+                    throw new Error(`No text content in response. Finish reason: ${candidate.finishReason}`);
+                } else {
+                    throw new Error('Invalid response format from API');
+                }
+
+            } catch (error) {
+                resultArea.className = 'result-area error';
+                resultArea.innerHTML = `
+                    <div class="result-header">❌ Error</div>
+                    <div class="result-content">${error.message}</div>
+                `;
+
+                document.getElementById('api-status').innerHTML = '❌ Error';
+                updateDiag('diag-api', '❌', 'API call failed');
+                updateDiag('diag-response', '❌', error.message);
+
+                console.error('Test error:', error);
+
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
