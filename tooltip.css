@@ -33,6 +33,29 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+/* Markdown Formatting Styles */
+#hov3x-tooltip strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+#hov3x-tooltip em {
+  font-style: italic;
+  color: inherit;
+}
+
+#hov3x-tooltip code {
+  font-family: 'Courier New', Courier, monospace;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+#hov3x-tooltip.hov3x-light-theme code {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* Hidden state */
 .hov3x-tooltip-hidden {
   opacity: 0;

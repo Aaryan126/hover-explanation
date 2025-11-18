@@ -100,10 +100,10 @@ function toggleTheme() {
 
   // Show brief notification
   if (tooltip && isTooltipActive) {
-    const currentText = tooltip.textContent;
-    tooltip.textContent = `Theme: ${currentTheme === 'dark' ? 'Dark' : 'Light'}`;
+    const currentHTML = tooltip.innerHTML;
+    tooltip.innerHTML = parseMarkdown(`Theme: ${currentTheme === 'dark' ? 'Dark' : 'Light'}`);
     setTimeout(() => {
-      tooltip.textContent = currentText;
+      tooltip.innerHTML = currentHTML;
     }, 800);
   }
 }
@@ -213,6 +213,37 @@ function getSelectionPosition() {
 }
 
 // ============================================
+// Parse Markdown to HTML
+// ============================================
+function parseMarkdown(text) {
+  if (!text) return '';
+
+  let html = text;
+
+  // Escape HTML to prevent XSS
+  html = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // Convert **bold** to <strong>
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Convert *italic* to <em>
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Convert `code` to <code>
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+  // Convert line breaks to <br>
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
+// ============================================
 // Handle Text Selection
 // ============================================
 async function handleTextSelection(text, selection) {
@@ -279,7 +310,8 @@ async function handleTextSelection(text, selection) {
 function showTooltip(text, position) {
   if (!tooltip) return;
 
-  tooltip.textContent = text;
+  // Parse markdown and set as HTML
+  tooltip.innerHTML = parseMarkdown(text);
 
   // Remove hidden class and add visible class, preserving theme class
   tooltip.classList.remove('hov3x-tooltip-hidden');
@@ -294,7 +326,8 @@ function showTooltip(text, position) {
 function updateTooltip(text) {
   if (!tooltip) return;
 
-  tooltip.textContent = text;
+  // Parse markdown and set as HTML
+  tooltip.innerHTML = parseMarkdown(text);
 
   // Re-position in case content size changed
   const position = getSelectionPosition();
