@@ -1,21 +1,21 @@
 // ============================================
 // Hov3x Content Script
-// Detects hover events and manages tooltip
+// Detects text selection and manages tooltip
 // ============================================
 
 console.log("[Hov3x Content] Content script loaded");
 
 // Configuration
-const HOVER_DELAY_MS = 200;
+const SELECTION_DELAY_MS = 300;
 const MIN_WORD_LENGTH = 3;
-const VALID_TAGS = ['P', 'SPAN', 'LI', 'TD', 'CODE', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+const MAX_SELECTION_LENGTH = 100; // Limit selection to reasonable length
 
 // State management
-let hoverTimeout = null;
-let currentWord = null;
-let currentElement = null;
+let selectionTimeout = null;
+let currentSelection = null;
 let tooltip = null;
 let isTooltipActive = false;
+let currentTheme = 'dark'; // 'dark' or 'light'
 
 // Pending requests to prevent spam
 let pendingRequests = new Set();
@@ -32,158 +32,220 @@ function initializeTooltip() {
   tooltip.className = 'hov3x-tooltip-hidden';
   document.body.appendChild(tooltip);
 
+  // Apply current theme
+  applyTheme();
+
   console.log("[Hov3x Content] Tooltip initialized");
 }
 
 // ============================================
 // Event Listeners
 // ============================================
-document.addEventListener('mouseover', handleMouseOver);
-document.addEventListener('mouseout', handleMouseOut);
-document.addEventListener('mousemove', handleMouseMove);
+document.addEventListener('mouseup', handleSelection);
+document.addEventListener('selectionchange', handleSelectionChange);
+document.addEventListener('keydown', handleKeyboardShortcut);
 
-// ============================================
-// Mouse Over Handler
-// ============================================
-function handleMouseOver(event) {
-  const element = event.target;
+// Listen for theme changes from storage (when toggled from popup)
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.tooltipTheme) {
+    currentTheme = changes.tooltipTheme.newValue;
+    console.log(`[Hov3x Content] Theme changed from ${changes.tooltipTheme.oldValue} to: ${currentTheme}`);
 
-  // Check if element is valid for hover detection
-  if (!isValidElement(element)) {
-    return;
-  }
-
-  // Get word at cursor position
-  const word = getWordAtCursor(element, event);
-
-  if (!word || word.length < MIN_WORD_LENGTH) {
-    return;
-  }
-
-  // Ignore if same word is already being processed
-  if (currentWord === word.toLowerCase()) {
-    return;
-  }
-
-  // Clear any existing timeout
-  clearTimeout(hoverTimeout);
-
-  // Set new hover timeout
-  hoverTimeout = setTimeout(() => {
-    handleWordHover(word, event);
-  }, HOVER_DELAY_MS);
-
-  currentWord = word.toLowerCase();
-  currentElement = element;
-}
-
-// ============================================
-// Mouse Out Handler
-// ============================================
-function handleMouseOut(event) {
-  clearTimeout(hoverTimeout);
-
-  // Hide tooltip if mouse leaves the element
-  const relatedTarget = event.relatedTarget;
-
-  if (!relatedTarget || (relatedTarget !== tooltip && !tooltip.contains(relatedTarget))) {
-    hideTooltip();
-  }
-}
-
-// ============================================
-// Mouse Move Handler
-// ============================================
-let lastMouseX = 0;
-let lastMouseY = 0;
-
-function handleMouseMove(event) {
-  lastMouseX = event.clientX;
-  lastMouseY = event.clientY;
-
-  // Update tooltip position if active
-  if (isTooltipActive && tooltip) {
-    positionTooltip(event.clientX, event.clientY);
-  }
-}
-
-// ============================================
-// Validate Element
-// ============================================
-function isValidElement(element) {
-  // Check if element tag is valid
-  if (!VALID_TAGS.includes(element.tagName)) {
-    return false;
-  }
-
-  // Ignore if inside tooltip itself
-  if (element.closest('#hov3x-tooltip')) {
-    return false;
-  }
-
-  // Ignore input fields, textareas, etc.
-  if (element.isContentEditable || element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-    return false;
-  }
-
-  return true;
-}
-
-// ============================================
-// Get Word at Cursor
-// ============================================
-function getWordAtCursor(element, event) {
-  const text = element.textContent;
-
-  if (!text || text.trim().length === 0) {
-    return null;
-  }
-
-  // Simple word extraction: split by whitespace and punctuation
-  const words = text.split(/[\s,;.!?()[\]{}""''<>\/\\|]+/);
-
-  // Find the word under cursor (simplified approach)
-  // In a production app, you'd use Range and Selection APIs for precise detection
-  for (const word of words) {
-    if (word.trim().length >= MIN_WORD_LENGTH) {
-      // Return first valid word (simplified - in production, calculate position)
-      return word.trim();
+    // Apply theme immediately if tooltip exists
+    if (tooltip) {
+      applyTheme();
+      console.log(`[Hov3x Content] Theme applied, tooltip classes: ${tooltip.className}`);
+    } else {
+      console.log(`[Hov3x Content] Tooltip doesn't exist yet, will apply on creation`);
     }
   }
+});
 
-  return null;
+// ============================================
+// Load Theme from Storage
+// ============================================
+chrome.storage.local.get(['tooltipTheme'], (result) => {
+  if (result.tooltipTheme) {
+    currentTheme = result.tooltipTheme;
+    console.log(`[Hov3x Content] Loaded theme: ${currentTheme}`);
+  }
+});
+
+// ============================================
+// Keyboard Shortcut Handler (Alt+T to toggle theme)
+// ============================================
+function handleKeyboardShortcut(event) {
+  // Alt+T to toggle theme
+  if (event.altKey && event.key.toLowerCase() === 't') {
+    event.preventDefault();
+    toggleTheme();
+  }
 }
 
 // ============================================
-// Handle Word Hover
+// Toggle Theme
 // ============================================
-async function handleWordHover(word, event) {
-  console.log(`[Hov3x Content] Hovering over word: "${word}"`);
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+  // Save to storage
+  chrome.storage.local.set({ tooltipTheme: currentTheme });
+
+  // Update tooltip if it exists
+  if (tooltip) {
+    applyTheme();
+  }
+
+  console.log(`[Hov3x Content] Theme toggled to: ${currentTheme}`);
+
+  // Show brief notification
+  if (tooltip && isTooltipActive) {
+    const currentText = tooltip.textContent;
+    tooltip.textContent = `Theme: ${currentTheme === 'dark' ? 'Dark' : 'Light'}`;
+    setTimeout(() => {
+      tooltip.textContent = currentText;
+    }, 800);
+  }
+}
+
+// ============================================
+// Apply Theme to Tooltip
+// ============================================
+function applyTheme() {
+  if (!tooltip) {
+    console.log('[Hov3x Content] Cannot apply theme - tooltip does not exist');
+    return;
+  }
+
+  console.log(`[Hov3x Content] Applying theme: ${currentTheme}`);
+  console.log(`[Hov3x Content] Tooltip classes before: ${tooltip.className}`);
+
+  if (currentTheme === 'light') {
+    tooltip.classList.add('hov3x-light-theme');
+  } else {
+    tooltip.classList.remove('hov3x-light-theme');
+  }
+
+  console.log(`[Hov3x Content] Tooltip classes after: ${tooltip.className}`);
+}
+
+// ============================================
+// Selection Change Handler
+// ============================================
+function handleSelectionChange() {
+  // Clear any existing timeout
+  clearTimeout(selectionTimeout);
+
+  // Set new selection timeout
+  selectionTimeout = setTimeout(() => {
+    processSelection();
+  }, SELECTION_DELAY_MS);
+}
+
+// ============================================
+// Mouse Up Handler (for immediate processing)
+// ============================================
+function handleSelection(event) {
+  // Don't process if clicking inside tooltip
+  if (event.target.closest('#hov3x-tooltip')) {
+    return;
+  }
+
+  // Clear timeout and process immediately on mouseup
+  clearTimeout(selectionTimeout);
+  processSelection(event);
+}
+
+// ============================================
+// Process Selection
+// ============================================
+function processSelection(event) {
+  const selection = window.getSelection();
+  const selectedText = selection.toString().trim();
+
+  // Hide tooltip if no selection
+  if (!selectedText) {
+    hideTooltip();
+    return;
+  }
+
+  // Validate selection length
+  if (selectedText.length < MIN_WORD_LENGTH) {
+    console.log(`[Hov3x Content] Selection too short: "${selectedText}"`);
+    return;
+  }
+
+  if (selectedText.length > MAX_SELECTION_LENGTH) {
+    console.log(`[Hov3x Content] Selection too long (${selectedText.length} chars)`);
+    showTooltip("Selection too long. Please select fewer words.", getSelectionPosition());
+    return;
+  }
+
+  // Ignore if same text is already being processed
+  if (currentSelection === selectedText.toLowerCase()) {
+    return;
+  }
+
+  // Clean the selected text (remove extra whitespace, newlines)
+  const cleanedText = selectedText.replace(/\s+/g, ' ').trim();
+
+  // Process the selection
+  handleTextSelection(cleanedText, selection);
+}
+
+// ============================================
+// Get Selection Position
+// ============================================
+function getSelectionPosition() {
+  const selection = window.getSelection();
+
+  if (!selection.rangeCount) {
+    return { x: 0, y: 0 };
+  }
+
+  const range = selection.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+
+  return {
+    x: rect.left + (rect.width / 2),
+    y: rect.bottom
+  };
+}
+
+// ============================================
+// Handle Text Selection
+// ============================================
+async function handleTextSelection(text, selection) {
+  console.log(`[Hov3x Content] Selected text: "${text}"`);
 
   // Prevent duplicate requests
-  if (pendingRequests.has(word.toLowerCase())) {
-    console.log(`[Hov3x Content] Request already pending for: "${word}"`);
+  if (pendingRequests.has(text.toLowerCase())) {
+    console.log(`[Hov3x Content] Request already pending for: "${text}"`);
     return;
   }
 
   // Initialize tooltip if needed
   initializeTooltip();
 
+  // Get selection position
+  const position = getSelectionPosition();
+
   // Show loading state
-  showTooltip("Loading...", event.clientX, event.clientY);
+  showTooltip("Loading...", position);
 
   // Mark as pending
-  pendingRequests.add(word.toLowerCase());
+  pendingRequests.add(text.toLowerCase());
+  currentSelection = text.toLowerCase();
 
   try {
     // Request explanation from background script
     const response = await chrome.runtime.sendMessage({
       action: "getExplanation",
-      term: word
+      term: text
     });
 
     // Remove from pending
-    pendingRequests.delete(word.toLowerCase());
+    pendingRequests.delete(text.toLowerCase());
 
     if (response.success) {
       const explanation = response.explanation;
@@ -199,8 +261,14 @@ async function handleWordHover(word, event) {
 
   } catch (error) {
     console.error(`[Hov3x Content] Failed to get explanation:`, error);
-    pendingRequests.delete(word.toLowerCase());
-    updateTooltip("Failed to load explanation");
+    pendingRequests.delete(text.toLowerCase());
+
+    // Check if extension context was invalidated
+    if (error.message && error.message.includes("Extension context invalidated")) {
+      updateTooltip("Extension reloaded. Please refresh this page.");
+    } else {
+      updateTooltip("Failed to load explanation");
+    }
   }
 }
 
@@ -208,15 +276,19 @@ async function handleWordHover(word, event) {
 // Tooltip Display Functions
 // ============================================
 
-function showTooltip(text, x, y) {
+function showTooltip(text, position) {
   if (!tooltip) return;
 
   tooltip.textContent = text;
-  tooltip.className = 'hov3x-tooltip-visible';
-  positionTooltip(x, y);
+
+  // Remove hidden class and add visible class, preserving theme class
+  tooltip.classList.remove('hov3x-tooltip-hidden');
+  tooltip.classList.add('hov3x-tooltip-visible');
+
+  positionTooltip(position);
   isTooltipActive = true;
 
-  console.log(`[Hov3x Content] Tooltip shown at (${x}, ${y})`);
+  console.log(`[Hov3x Content] Tooltip shown at (${position.x}, ${position.y})`);
 }
 
 function updateTooltip(text) {
@@ -225,7 +297,8 @@ function updateTooltip(text) {
   tooltip.textContent = text;
 
   // Re-position in case content size changed
-  positionTooltip(lastMouseX, lastMouseY);
+  const position = getSelectionPosition();
+  positionTooltip(position);
 
   console.log(`[Hov3x Content] Tooltip updated`);
 }
@@ -233,37 +306,47 @@ function updateTooltip(text) {
 function hideTooltip() {
   if (!tooltip) return;
 
-  tooltip.className = 'hov3x-tooltip-hidden';
+  // Remove visible class and add hidden class, preserving theme class
+  tooltip.classList.remove('hov3x-tooltip-visible');
+  tooltip.classList.add('hov3x-tooltip-hidden');
+
   isTooltipActive = false;
-  currentWord = null;
-  currentElement = null;
+  currentSelection = null;
 
   console.log(`[Hov3x Content] Tooltip hidden`);
 }
 
-function positionTooltip(x, y) {
+function positionTooltip(position) {
   if (!tooltip) return;
 
-  const offset = 15;
+  const offset = 10;
   const scrollX = window.scrollX || window.pageXOffset;
   const scrollY = window.scrollY || window.pageYOffset;
 
-  let left = x + scrollX + offset;
-  let top = y + scrollY + offset;
+  let left = position.x + scrollX;
+  let top = position.y + scrollY + offset;
 
   // Get tooltip dimensions
   const tooltipRect = tooltip.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
+  // Center tooltip horizontally on selection
+  left = left - (tooltipRect.width / 2);
+
   // Adjust if tooltip goes off-screen (right edge)
-  if (x + tooltipRect.width + offset > viewportWidth) {
-    left = x + scrollX - tooltipRect.width - offset;
+  if (left + tooltipRect.width > scrollX + viewportWidth) {
+    left = scrollX + viewportWidth - tooltipRect.width - offset;
+  }
+
+  // Adjust if tooltip goes off-screen (left edge)
+  if (left < scrollX) {
+    left = scrollX + offset;
   }
 
   // Adjust if tooltip goes off-screen (bottom edge)
-  if (y + tooltipRect.height + offset > viewportHeight) {
-    top = y + scrollY - tooltipRect.height - offset;
+  if (position.y + tooltipRect.height + offset > viewportHeight) {
+    top = position.y + scrollY - tooltipRect.height - offset;
   }
 
   tooltip.style.left = `${left}px`;
@@ -279,4 +362,4 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-console.log("[Hov3x Content] Event listeners registered");
+console.log("[Hov3x Content] Selection event listeners registered");

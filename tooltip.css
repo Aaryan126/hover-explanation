@@ -1,27 +1,36 @@
 /* ============================================
    Hov3x Tooltip Styles
-   Clean, minimal tooltip UI
+   Two theme modes: Dark (default) and Light
    ============================================ */
 
-/* Base tooltip container */
+/* Base tooltip container - Dark Mode (Default) */
 #hov3x-tooltip {
   position: absolute;
   z-index: 2147483647; /* Maximum z-index to stay on top */
   padding: 12px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4995EB;
   color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
-              0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25),
+              0 2px 8px rgba(0, 0, 0, 0.15);
   max-width: 350px;
   min-width: 200px;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.3s ease, color 0.3s ease;
   word-wrap: break-word;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Light Mode Theme */
+#hov3x-tooltip.hov3x-light-theme {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
+              0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* Hidden state */
@@ -68,11 +77,4 @@
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  #hov3x-tooltip {
-    background: linear-gradient(135deg, #4c5fd7 0%, #5e3d83 100%);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
-                0 2px 8px rgba(0, 0, 0, 0.2);
-  }
-}
+/* Remove auto dark mode detection - we handle themes manually */

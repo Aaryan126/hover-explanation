@@ -10,6 +10,8 @@ const cachedCountEl = document.getElementById('cached-count');
 const cacheSizeEl = document.getElementById('cache-size');
 const refreshStatsBtn = document.getElementById('refresh-stats');
 const clearCacheBtn = document.getElementById('clear-cache');
+const toggleThemeBtn = document.getElementById('toggle-theme');
+const themeStatusEl = document.getElementById('theme-status');
 const statusMessageEl = document.getElementById('status-message');
 const apiKeyStatusEl = document.getElementById('api-key-status');
 
@@ -20,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log("[Hov3x Popup] DOM loaded, initializing...");
   loadCacheStats();
   checkApiKeyStatus();
+  loadCurrentTheme();
 });
 
 // ============================================
@@ -33,6 +36,11 @@ refreshStatsBtn.addEventListener('click', () => {
 clearCacheBtn.addEventListener('click', () => {
   console.log("[Hov3x Popup] Clear cache clicked");
   clearCache();
+});
+
+toggleThemeBtn.addEventListener('click', () => {
+  console.log("[Hov3x Popup] Toggle theme clicked");
+  toggleTheme();
 });
 
 // ============================================
@@ -159,6 +167,43 @@ function calculateStorageSize(itemCount) {
   } else {
     return `${(totalBytes / (1024 * 1024)).toFixed(1)} MB`;
   }
+}
+
+// ============================================
+// Theme Management
+// ============================================
+
+async function loadCurrentTheme() {
+  try {
+    const result = await chrome.storage.local.get(['tooltipTheme']);
+    const theme = result.tooltipTheme || 'dark';
+    updateThemeDisplay(theme);
+  } catch (error) {
+    console.error("[Hov3x Popup] Error loading theme:", error);
+  }
+}
+
+async function toggleTheme() {
+  try {
+    const result = await chrome.storage.local.get(['tooltipTheme']);
+    const currentTheme = result.tooltipTheme || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    await chrome.storage.local.set({ tooltipTheme: newTheme });
+    updateThemeDisplay(newTheme);
+
+    showStatus(`Theme changed to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`, "success");
+    console.log(`[Hov3x Popup] Theme toggled to: ${newTheme}`);
+  } catch (error) {
+    console.error("[Hov3x Popup] Error toggling theme:", error);
+    showStatus("Error changing theme", "error");
+  }
+}
+
+function updateThemeDisplay(theme) {
+  const themeName = theme === 'dark' ? 'Dark Mode' : 'Light Mode';
+  themeStatusEl.textContent = `Current: ${themeName}`;
+  themeStatusEl.className = 'status success';
 }
 
 console.log("[Hov3x Popup] Event listeners registered");
