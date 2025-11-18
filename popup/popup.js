@@ -1,5 +1,5 @@
 // ============================================
-// Hov3x Popup Script
+// Hov3x Popup Script - Minimal UI
 // Manages popup UI and interactions
 // ============================================
 
@@ -8,12 +8,9 @@ console.log("[Hov3x Popup] Popup script loaded");
 // DOM elements
 const cachedCountEl = document.getElementById('cached-count');
 const cacheSizeEl = document.getElementById('cache-size');
-const refreshStatsBtn = document.getElementById('refresh-stats');
 const clearCacheBtn = document.getElementById('clear-cache');
-const toggleThemeBtn = document.getElementById('toggle-theme');
-const themeStatusEl = document.getElementById('theme-status');
-const statusMessageEl = document.getElementById('status-message');
-const apiKeyStatusEl = document.getElementById('api-key-status');
+const themeToggle = document.getElementById('theme-toggle');
+const serviceToggle = document.getElementById('service-toggle');
 
 // ============================================
 // Initialize Popup
@@ -21,26 +18,26 @@ const apiKeyStatusEl = document.getElementById('api-key-status');
 document.addEventListener('DOMContentLoaded', () => {
   console.log("[Hov3x Popup] DOM loaded, initializing...");
   loadCacheStats();
-  checkApiKeyStatus();
   loadCurrentTheme();
+  loadServiceState();
 });
 
 // ============================================
 // Event Listeners
 // ============================================
-refreshStatsBtn.addEventListener('click', () => {
-  console.log("[Hov3x Popup] Refresh stats clicked");
-  loadCacheStats();
-});
-
 clearCacheBtn.addEventListener('click', () => {
   console.log("[Hov3x Popup] Clear cache clicked");
   clearCache();
 });
 
-toggleThemeBtn.addEventListener('click', () => {
-  console.log("[Hov3x Popup] Toggle theme clicked");
+themeToggle.addEventListener('click', () => {
+  console.log("[Hov3x Popup] Theme toggle clicked");
   toggleTheme();
+});
+
+serviceToggle.addEventListener('click', () => {
+  console.log("[Hov3x Popup] Service toggle clicked");
+  toggleService();
 });
 
 // ============================================
@@ -49,7 +46,6 @@ toggleThemeBtn.addEventListener('click', () => {
 async function loadCacheStats() {
   try {
     setLoading(true);
-    showStatus("Loading statistics...", "info");
 
     const response = await chrome.runtime.sendMessage({
       action: "getCacheStats"
@@ -63,16 +59,13 @@ async function loadCacheStats() {
       const approxSize = calculateStorageSize(stats.totalCached);
       cacheSizeEl.textContent = approxSize;
 
-      showStatus(`Found ${stats.totalCached} cached terms`, "success");
       console.log("[Hov3x Popup] Cache stats loaded:", stats);
     } else {
-      showStatus("Failed to load statistics", "error");
       console.error("[Hov3x Popup] Error loading stats:", response.error);
     }
 
   } catch (error) {
     console.error("[Hov3x Popup] Error loading cache stats:", error);
-    showStatus("Error loading statistics", "error");
   } finally {
     setLoading(false);
   }
@@ -82,58 +75,32 @@ async function loadCacheStats() {
 // Clear Cache
 // ============================================
 async function clearCache() {
-  if (!confirm("Are you sure you want to clear all cached explanations?")) {
+  if (!confirm("Clear all cached explanations?")) {
     return;
   }
 
   try {
     setLoading(true);
-    showStatus("Clearing cache...", "info");
 
     const response = await chrome.runtime.sendMessage({
       action: "clearCache"
     });
 
     if (response.success) {
-      showStatus(`Cleared ${response.cleared} cached terms`, "success");
       console.log(`[Hov3x Popup] Cleared ${response.cleared} items`);
 
-      // Refresh stats
+      // Refresh stats after clearing
       setTimeout(() => {
         loadCacheStats();
-      }, 500);
+      }, 300);
     } else {
-      showStatus("Failed to clear cache", "error");
       console.error("[Hov3x Popup] Error clearing cache:", response.error);
     }
 
   } catch (error) {
     console.error("[Hov3x Popup] Error clearing cache:", error);
-    showStatus("Error clearing cache", "error");
   } finally {
     setLoading(false);
-  }
-}
-
-// ============================================
-// Check API Key Status
-// ============================================
-async function checkApiKeyStatus() {
-  // This is a simple check - we can't directly access background.js variables
-  // So we'll infer from the ability to make requests
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: "getCacheStats"
-    });
-
-    // If we can communicate with background, assume it's loaded
-    // In a real scenario, background.js could expose an API key check endpoint
-    apiKeyStatusEl.textContent = "API Key: Check background.js";
-    apiKeyStatusEl.className = "api-key-status";
-
-  } catch (error) {
-    apiKeyStatusEl.textContent = "API Key: Unable to verify";
-    apiKeyStatusEl.className = "api-key-status";
   }
 }
 
@@ -141,17 +108,12 @@ async function checkApiKeyStatus() {
 // UI Helper Functions
 // ============================================
 
-function showStatus(message, type = "info") {
-  statusMessageEl.textContent = message;
-  statusMessageEl.className = `status ${type}`;
-}
-
 function setLoading(isLoading) {
-  const content = document.querySelector('.content');
+  const container = document.querySelector('.container');
   if (isLoading) {
-    content.classList.add('loading');
+    container.classList.add('loading');
   } else {
-    content.classList.remove('loading');
+    container.classList.remove('loading');
   }
 }
 
@@ -176,8 +138,8 @@ function calculateStorageSize(itemCount) {
 async function loadCurrentTheme() {
   try {
     const result = await chrome.storage.local.get(['tooltipTheme']);
-    const theme = result.tooltipTheme || 'dark';
-    updateThemeDisplay(theme);
+    const theme = result.tooltipTheme || 'light';
+    applyTheme(theme);
   } catch (error) {
     console.error("[Hov3x Popup] Error loading theme:", error);
   }
@@ -186,24 +148,68 @@ async function loadCurrentTheme() {
 async function toggleTheme() {
   try {
     const result = await chrome.storage.local.get(['tooltipTheme']);
-    const currentTheme = result.tooltipTheme || 'dark';
+    const currentTheme = result.tooltipTheme || 'light';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
     await chrome.storage.local.set({ tooltipTheme: newTheme });
-    updateThemeDisplay(newTheme);
+    applyTheme(newTheme);
 
-    showStatus(`Theme changed to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`, "success");
     console.log(`[Hov3x Popup] Theme toggled to: ${newTheme}`);
   } catch (error) {
     console.error("[Hov3x Popup] Error toggling theme:", error);
-    showStatus("Error changing theme", "error");
   }
 }
 
-function updateThemeDisplay(theme) {
-  const themeName = theme === 'dark' ? 'Dark Mode' : 'Light Mode';
-  themeStatusEl.textContent = `Current: ${themeName}`;
-  themeStatusEl.className = 'status success';
+function applyTheme(theme) {
+  const body = document.body;
+  const toggle = document.getElementById('theme-toggle');
+
+  if (theme === 'dark') {
+    body.classList.add('dark');
+    toggle.classList.add('active');
+  } else {
+    body.classList.remove('dark');
+    toggle.classList.remove('active');
+  }
+}
+
+// ============================================
+// Service State Management
+// ============================================
+
+async function loadServiceState() {
+  try {
+    const result = await chrome.storage.local.get(['serviceEnabled']);
+    const serviceEnabled = result.serviceEnabled !== undefined ? result.serviceEnabled : true;
+    applyServiceState(serviceEnabled);
+  } catch (error) {
+    console.error("[Hov3x Popup] Error loading service state:", error);
+  }
+}
+
+async function toggleService() {
+  try {
+    const result = await chrome.storage.local.get(['serviceEnabled']);
+    const currentState = result.serviceEnabled !== undefined ? result.serviceEnabled : true;
+    const newState = !currentState;
+
+    await chrome.storage.local.set({ serviceEnabled: newState });
+    applyServiceState(newState);
+
+    console.log(`[Hov3x Popup] Service ${newState ? 'enabled' : 'disabled'}`);
+  } catch (error) {
+    console.error("[Hov3x Popup] Error toggling service:", error);
+  }
+}
+
+function applyServiceState(enabled) {
+  const toggle = document.getElementById('service-toggle');
+
+  if (enabled) {
+    toggle.classList.add('active');
+  } else {
+    toggle.classList.remove('active');
+  }
 }
 
 console.log("[Hov3x Popup] Event listeners registered");

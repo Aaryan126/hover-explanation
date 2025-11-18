@@ -54,6 +54,16 @@ async function handleExplanationRequest(term, sendResponse) {
   console.log(`[Hov3x Background] Handling request for term: "${term}"`);
 
   try {
+    // Check if service is enabled
+    const serviceState = await chrome.storage.local.get(['serviceEnabled']);
+    const serviceEnabled = serviceState.serviceEnabled !== undefined ? serviceState.serviceEnabled : true;
+
+    if (!serviceEnabled) {
+      console.log(`[Hov3x Background] Service is disabled, ignoring request`);
+      sendResponse({ success: false, error: "Service is disabled" });
+      return;
+    }
+
     // Check cache first
     const cached = await getCachedExplanation(term);
     if (cached) {

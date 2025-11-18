@@ -12,182 +12,268 @@
     }
 
     body {
-      width: 350px;
-      min-height: 400px;
+      width: 320px;
+      min-height: 380px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #333;
-      padding: 0;
-    }
-
-    .header {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      padding: 20px;
-      text-align: center;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .header h1 {
-      font-size: 24px;
-      color: #ffffff;
-      font-weight: 700;
-      margin-bottom: 5px;
-    }
-
-    .header p {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 400;
-    }
-
-    .content {
-      padding: 20px;
       background: #ffffff;
+      color: #000000;
+      padding: 0;
+      transition: background-color 0.3s, color 0.3s;
     }
 
-    .section {
-      margin-bottom: 20px;
+    body.dark {
+      background: #1a1a1a;
+      color: #ffffff;
     }
 
-    .section-title {
-      font-size: 14px;
+    .container {
+      padding: 24px;
+    }
+
+    /* Service Toggle Section */
+    .service-section {
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    body.dark .service-section {
+      border-bottom-color: #3a3a3a;
+    }
+
+    .service-row {
+      padding: 0 !important;
+      border-bottom: none !important;
+    }
+
+    .service-label {
+      font-size: 15px;
       font-weight: 600;
-      color: #667eea;
-      margin-bottom: 10px;
+    }
+
+    /* Stats Section */
+    .stats-section {
+      margin-bottom: 24px;
+    }
+
+    .stats-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666666;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    body.dark .stats-title {
+      color: #999999;
     }
 
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 15px;
+      gap: 12px;
     }
 
     .stat-card {
-      background: #f7f9fc;
-      padding: 12px;
-      border-radius: 8px;
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
       text-align: center;
-      border: 1px solid #e1e8ed;
+      border: 1px solid #e0e0e0;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    body.dark .stat-card {
+      background: #2a2a2a;
+      border-color: #3a3a3a;
     }
 
     .stat-value {
       font-size: 24px;
       font-weight: 700;
-      color: #667eea;
+      color: #000000;
       display: block;
+      margin-bottom: 4px;
+    }
+
+    body.dark .stat-value {
+      color: #ffffff;
     }
 
     .stat-label {
-      font-size: 11px;
-      color: #8899a6;
+      font-size: 10px;
+      color: #666666;
       text-transform: uppercase;
-      margin-top: 4px;
+      letter-spacing: 0.5px;
     }
 
-    .button {
+    body.dark .stat-label {
+      color: #999999;
+    }
+
+    /* Controls Section */
+    .controls-section {
+      margin-bottom: 24px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    body.dark .control-row {
+      border-bottom-color: #3a3a3a;
+    }
+
+    .control-row:last-child {
+      border-bottom: none;
+    }
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #000000;
+    }
+
+    body.dark .control-label {
+      color: #ffffff;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #d0d0d0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #000000;
+    }
+
+    body.dark .toggle-switch {
+      background: #4a4a4a;
+    }
+
+    body.dark .toggle-switch.active {
+      background: #ffffff;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    body.dark .toggle-switch::after {
+      background: #1a1a1a;
+    }
+
+    body.dark .toggle-switch.active::after {
+      background: #000000;
+    }
+
+    /* Clear Cache Button */
+    .clear-button {
       width: 100%;
       padding: 12px 16px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       color: #ffffff;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #000000;
       border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-bottom: 10px;
-    }
-
-    .button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .button:active {
-      transform: translateY(0);
-    }
-
-    .button-secondary {
-      background: #f7f9fc;
-      color: #667eea;
-      border: 1px solid #e1e8ed;
-    }
-
-    .button-secondary:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .status {
-      padding: 10px 12px;
-      background: #f0f4ff;
-      border-left: 3px solid #667eea;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #555;
-      margin-bottom: 10px;
-    }
-
-    .status.error {
-      background: #fff0f0;
-      border-left-color: #e74c3c;
-      color: #c0392b;
-    }
-
-    .status.success {
-      background: #f0fff4;
-      border-left-color: #27ae60;
-      color: #1e8449;
-    }
-
-    .api-key-status {
-      font-size: 12px;
-      padding: 8px 12px;
-      background: #fff9e6;
       border-radius: 6px;
-      border: 1px solid #ffe066;
-      color: #996600;
-      margin-top: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .api-key-status.configured {
-      background: #f0fff4;
-      border-color: #7bed9f;
-      color: #2d7a4f;
+    .clear-button:hover {
+      opacity: 0.85;
     }
 
+    .clear-button:active {
+      opacity: 0.7;
+    }
+
+    body.dark .clear-button {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Footer */
     .footer {
-      padding: 15px 20px;
-      background: rgba(255, 255, 255, 0.05);
+      padding: 16px 24px;
       text-align: center;
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.7);
+      font-size: 10px;
+      color: #999999;
+      border-top: 1px solid #e0e0e0;
+      background: #fafafa;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    body.dark .footer {
+      background: #0f0f0f;
+      border-top-color: #3a3a3a;
     }
 
     .footer a {
-      color: rgba(255, 255, 255, 0.9);
+      color: #666666;
       text-decoration: none;
       font-weight: 600;
+      transition: color 0.2s;
     }
 
+    .footer a:hover {
+      color: #000000;
+    }
+
+    body.dark .footer a {
+      color: #999999;
+    }
+
+    body.dark .footer a:hover {
+      color: #ffffff;
+    }
+
+    /* Loading State */
     .loading {
-      opacity: 0.6;
+      opacity: 0.5;
       pointer-events: none;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Hov3x</h1>
-    <p>AI-Powered Tooltip Explanations</p>
-  </div>
+  <div class="container">
+    <!-- Service Toggle - Top Section -->
+    <div class="service-section">
+      <div class="control-row service-row">
+        <span class="control-label service-label">Service</span>
+        <div class="toggle-switch" id="service-toggle"></div>
+      </div>
+    </div>
 
-  <div class="content">
-    <div class="section">
-      <div class="section-title">Cache Statistics</div>
+    <!-- Cache Statistics -->
+    <div class="stats-section">
+      <div class="stats-title">Cache Statistics</div>
       <div class="stats-grid">
         <div class="stat-card">
           <span class="stat-value" id="cached-count">0</span>
@@ -200,33 +286,21 @@
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Theme</div>
-      <button class="button" id="toggle-theme">Toggle Theme (Alt+T)</button>
-      <div class="status" id="theme-status" style="margin-top: 10px;">
-        Current: Dark Mode
+    <!-- Controls -->
+    <div class="controls-section">
+      <div class="control-row">
+        <span class="control-label">Dark Mode</span>
+        <div class="toggle-switch" id="theme-toggle"></div>
       </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Actions</div>
-      <button class="button" id="refresh-stats">Refresh Statistics</button>
-      <button class="button button-secondary" id="clear-cache">Clear All Cache</button>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Status</div>
-      <div class="status" id="status-message">
-        Extension is active. Select/highlight any word to see explanations.
-      </div>
-      <div class="api-key-status" id="api-key-status">
-        API Key: Not configured
+      <div class="control-row">
+        <button class="clear-button" id="clear-cache">Clear Cache</button>
       </div>
     </div>
   </div>
 
+  <!-- Footer -->
   <div class="footer">
-    Powered by <a href="https://ai.google.dev/" target="_blank">Gemini 2.5 Flash</a>
+    Powered by <a href="https://ai.google.dev/" target="_blank">Gemini</a>
   </div>
 
   <script src="popup.js"></script>

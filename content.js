@@ -249,6 +249,15 @@ function parseMarkdown(text) {
 async function handleTextSelection(text, selection) {
   console.log(`[Hov3x Content] Selected text: "${text}"`);
 
+  // Check if service is enabled
+  const serviceState = await chrome.storage.local.get(['serviceEnabled']);
+  const serviceEnabled = serviceState.serviceEnabled !== undefined ? serviceState.serviceEnabled : true;
+
+  if (!serviceEnabled) {
+    console.log(`[Hov3x Content] Service is disabled, ignoring selection`);
+    return;
+  }
+
   // Prevent duplicate requests
   if (pendingRequests.has(text.toLowerCase())) {
     console.log(`[Hov3x Content] Request already pending for: "${text}"`);
