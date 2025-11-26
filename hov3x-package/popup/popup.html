@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hov3x - AI Tooltip Explanations</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 320px;
+      min-height: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #ffffff;
+      color: #000000;
+      padding: 0;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark {
+      background: #1a1a1a;
+      color: #ffffff;
+    }
+
+    .container {
+      padding: 24px;
+    }
+
+    /* Service Toggle Section */
+    .service-section {
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    body.dark .service-section {
+      border-bottom-color: #3a3a3a;
+    }
+
+    .service-row {
+      padding: 0 !important;
+      border-bottom: none !important;
+    }
+
+    .service-label {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    /* Stats Section */
+    .stats-section {
+      margin-bottom: 24px;
+    }
+
+    .stats-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666666;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    body.dark .stats-title {
+      color: #999999;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #e0e0e0;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    body.dark .stat-card {
+      background: #2a2a2a;
+      border-color: #3a3a3a;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #000000;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    body.dark .stat-value {
+      color: #ffffff;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #666666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    body.dark .stat-label {
+      color: #999999;
+    }
+
+    /* Controls Section */
+    .controls-section {
+      margin-bottom: 24px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    body.dark .control-row {
+      border-bottom-color: #3a3a3a;
+    }
+
+    .control-row:last-child {
+      border-bottom: none;
+    }
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #000000;
+    }
+
+    body.dark .control-label {
+      color: #ffffff;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #d0d0d0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #000000;
+    }
+
+    body.dark .toggle-switch {
+      background: #4a4a4a;
+    }
+
+    body.dark .toggle-switch.active {
+      background: #ffffff;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    body.dark .toggle-switch::after {
+      background: #1a1a1a;
+    }
+
+    body.dark .toggle-switch.active::after {
+      background: #000000;
+    }
+
+    /* Clear Cache Button */
+    .clear-button {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #000000;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .clear-button:hover {
+      opacity: 0.85;
+    }
+
+    .clear-button:active {
+      opacity: 0.7;
+    }
+
+    body.dark .clear-button {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 16px 24px;
+      text-align: center;
+      font-size: 10px;
+      color: #999999;
+      border-top: 1px solid #e0e0e0;
+      background: #fafafa;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    body.dark .footer {
+      background: #0f0f0f;
+      border-top-color: #3a3a3a;
+    }
+
+    .footer a {
+      color: #666666;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .footer a:hover {
+      color: #000000;
+    }
+
+    body.dark .footer a {
+      color: #999999;
+    }
+
+    body.dark .footer a:hover {
+      color: #ffffff;
+    }
+
+    /* Loading State */
+    .loading {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Service Toggle - Top Section -->
+    <div class="service-section">
+      <div class="control-row service-row">
+        <span class="control-label service-label">Service</span>
+        <div class="toggle-switch" id="service-toggle"></div>
+      </div>
+    </div>
+
+    <!-- Cache Statistics -->
+    <div class="stats-section">
+      <div class="stats-title">Cache Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="cached-count">0</span>
+          <span class="stat-label">Cached Terms</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="cache-size">0 KB</span>
+          <span class="stat-label">Storage Used</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-section">
+      <div class="control-row">
+        <span class="control-label">Dark Mode</span>
+        <div class="toggle-switch" id="theme-toggle"></div>
+      </div>
+      <div class="control-row">
+        <button class="clear-button" id="clear-cache">Clear Cache</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Powered by <a href="https://ai.google.dev/" target="_blank">Gemini</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

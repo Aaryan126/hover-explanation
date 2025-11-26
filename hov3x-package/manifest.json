@@ -5,7 +5,7 @@
   "description": "AI-powered tooltip explanations for technical terms. Select any text to get instant, simple explanations.",
   "permissions": [
     "storage"
-],
+  ],
   "host_permissions": [
     "https://*.workers.dev/*"
   ],
