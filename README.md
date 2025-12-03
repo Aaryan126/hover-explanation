@@ -1,6 +1,6 @@
 # Hov3x - AI-Powered Technical Term Tooltips
 
-**Hov3x** is a Chrome Extension (Manifest V3) that provides instant AI-generated explanations for technical terms when you hover over them on any webpage. Powered by Google's Gemini 2.0 Flash Lite model.
+**Hov3x** is a Chrome Extension (Manifest V3) that provides instant AI-generated explanations for technical terms when you highlight over them on any webpage. Powered by Google's Gemini 2.0 Flash Lite model.
 
 ---
 
