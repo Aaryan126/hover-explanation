@@ -1,0 +1,28 @@
+{
+  "name": "hover-explain",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "**Hov3x** is a Chrome Extension (Manifest V3) that provides instant AI-generated explanations for technical terms. Now powered by WebLLM for free, local inference.",
+  "main": "background-proxy.js",
+  "scripts": {
+    "build": "node build.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aaryan126/hover-explanation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Aaryan126/hover-explanation/issues"
+  },
+  "homepage": "https://github.com/Aaryan126/hover-explanation#readme",
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.80"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  }
+}
