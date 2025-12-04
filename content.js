@@ -244,7 +244,7 @@ function parseMarkdown(text) {
 }
 
 // ============================================
-// Handle Text Selection
+// Handle Text Selection (with Streaming)
 // ============================================
 async function handleTextSelection(text, selection) {
   console.log(`[Hov3x Content] Selected text: "${text}"`);
@@ -278,29 +278,16 @@ async function handleTextSelection(text, selection) {
   currentSelection = text.toLowerCase();
 
   try {
-    // Request explanation from background script
-    const response = await chrome.runtime.sendMessage({
-      action: "getExplanation",
+    // Request streaming explanation from background script
+    chrome.runtime.sendMessage({
+      action: "getExplanationStreaming",
       term: text
     });
 
-    // Remove from pending
-    pendingRequests.delete(text.toLowerCase());
-
-    if (response.success) {
-      const explanation = response.explanation;
-      const cacheStatus = response.cached ? " (cached)" : "";
-      console.log(`[Hov3x Content] Received explanation${cacheStatus}: "${explanation}"`);
-
-      // Update tooltip with explanation
-      updateTooltip(explanation);
-    } else {
-      console.error(`[Hov3x Content] Error getting explanation:`, response.error);
-      updateTooltip(`Error: ${response.error}`);
-    }
+    console.log(`[Hov3x Content] Streaming request sent for: "${text}"`);
 
   } catch (error) {
-    console.error(`[Hov3x Content] Failed to get explanation:`, error);
+    console.error(`[Hov3x Content] Failed to request streaming explanation:`, error);
     pendingRequests.delete(text.toLowerCase());
 
     // Check if extension context was invalidated
@@ -311,6 +298,32 @@ async function handleTextSelection(text, selection) {
     }
   }
 }
+
+// ============================================
+// Message Listener for Streaming Responses
+// ============================================
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "streamChunk") {
+    // Update tooltip with partial text
+    updateTooltip(request.text);
+    console.log(`[Hov3x Content] Stream chunk received: ${request.text.length} chars`);
+  }
+
+  if (request.action === "streamComplete") {
+    // Final update with complete explanation
+    updateTooltip(request.explanation);
+    pendingRequests.delete(currentSelection);
+    const cacheStatus = request.cached ? " (cached)" : "";
+    console.log(`[Hov3x Content] Stream complete${cacheStatus}: "${request.explanation}"`);
+  }
+
+  if (request.action === "streamError") {
+    // Handle error
+    updateTooltip(`Error: ${request.error}`);
+    pendingRequests.delete(currentSelection);
+    console.error(`[Hov3x Content] Stream error:`, request.error);
+  }
+});
 
 // ============================================
 // Tooltip Display Functions

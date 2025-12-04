@@ -61,7 +61,7 @@ async function initializeEngine(progressCallback) {
 }
 
 // ============================================
-// Generate Explanation
+// Generate Explanation (Non-streaming)
 // ============================================
 async function generateExplanation(term, progressCallback) {
   try {
@@ -96,6 +96,55 @@ async function generateExplanation(term, progressCallback) {
 
   } catch (error) {
     console.error("[WebLLM] Error generating explanation:", error);
+    throw error;
+  }
+}
+
+// ============================================
+// Generate Explanation with Streaming
+// ============================================
+async function generateExplanationStreaming(term, streamCallback, progressCallback) {
+  try {
+    // Initialize engine if not ready
+    if (!isReady) {
+      await initializeEngine(progressCallback);
+    }
+
+    console.log(`[WebLLM] Generating streaming explanation for: "${term}"`);
+
+    // Create prompt
+    const prompt = `Explain this technical term in 1-2 simple, clear sentences: "${term}"`;
+
+    // Generate streaming response
+    const stream = await engine.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a helpful assistant that explains technical terms clearly and concisely." },
+        { role: "user", content: prompt }
+      ],
+      temperature: TEMPERATURE,
+      max_tokens: MAX_TOKENS,
+      stream: true, // Enable streaming
+    });
+
+    let fullText = "";
+
+    // Process stream chunks
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || "";
+      if (delta) {
+        fullText += delta;
+        // Call callback with partial text
+        if (streamCallback) {
+          streamCallback(fullText);
+        }
+      }
+    }
+
+    console.log(`[WebLLM] Streaming complete: "${fullText}"`);
+    return fullText.trim();
+
+  } catch (error) {
+    console.error("[WebLLM] Error generating streaming explanation:", error);
     throw error;
   }
 }
@@ -141,6 +190,7 @@ async function resetEngine() {
 export {
   initializeEngine,
   generateExplanation,
+  generateExplanationStreaming,
   isEngineReady,
   getInitStatus,
   resetEngine

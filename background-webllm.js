@@ -6,6 +6,7 @@
 import {
   initializeEngine,
   generateExplanation,
+  generateExplanationStreaming,
   isEngineReady,
   getInitStatus
 } from './webllm-service.js';
@@ -63,6 +64,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  if (request.action === "getExplanationStreaming") {
+    handleExplanationRequestStreaming(request.term, sender.tab.id);
+    return false; // Streaming handled via separate messages
+  }
+
   if (request.action === "clearCache") {
     clearAllCache(sendResponse);
     return true;
@@ -114,7 +120,87 @@ async function initializeWebLLM(sendResponse) {
 }
 
 // ============================================
-// Main Handler: Get Explanation
+// Main Handler: Get Explanation (Streaming)
+// ============================================
+async function handleExplanationRequestStreaming(term, tabId) {
+  console.log(`[Hov3x Background] Handling streaming request for term: "${term}"`);
+
+  try {
+    // Check if service is enabled
+    const serviceState = await chrome.storage.local.get(['serviceEnabled']);
+    const serviceEnabled = serviceState.serviceEnabled !== undefined ? serviceState.serviceEnabled : true;
+
+    if (!serviceEnabled) {
+      console.log(`[Hov3x Background] Service is disabled, ignoring request`);
+      chrome.tabs.sendMessage(tabId, {
+        action: "streamError",
+        error: "Service is disabled"
+      });
+      return;
+    }
+
+    // Check cache first
+    const cached = await getCachedExplanation(term);
+    if (cached) {
+      console.log(`[Hov3x Background] Cache hit for: "${term}"`);
+      chrome.tabs.sendMessage(tabId, {
+        action: "streamComplete",
+        explanation: cached.text,
+        cached: true
+      });
+      return;
+    }
+
+    console.log(`[Hov3x Background] Cache miss for: "${term}". Generating with WebLLM streaming...`);
+
+    // Ensure engine is initialized
+    if (!isEngineReady()) {
+      console.log(`[Hov3x Background] Engine not ready, waiting...`);
+      chrome.tabs.sendMessage(tabId, {
+        action: "streamChunk",
+        text: "Initializing model..."
+      });
+      await startEngineInitialization();
+    }
+
+    // Generate explanation with streaming
+    const fullExplanation = await generateExplanationStreaming(
+      term,
+      (partialText) => {
+        // Send stream chunks to content script
+        chrome.tabs.sendMessage(tabId, {
+          action: "streamChunk",
+          text: partialText
+        });
+      },
+      (progress) => {
+        console.log(`[Hov3x Background] Generation progress: ${progress.text}`);
+      }
+    );
+
+    // Cache the result
+    await cacheExplanation(term, fullExplanation);
+
+    // Send completion message
+    chrome.tabs.sendMessage(tabId, {
+      action: "streamComplete",
+      explanation: fullExplanation,
+      cached: false
+    });
+
+    console.log(`[Hov3x Background] Successfully generated and cached: "${term}"`);
+
+  } catch (error) {
+    console.error(`[Hov3x Background] Error in streaming explanation:`, error);
+    chrome.tabs.sendMessage(tabId, {
+      action: "streamError",
+      error: error.message || "Failed to generate explanation"
+    });
+  }
+}
+
+// ============================================
+// Main Handler: Get Explanation (Non-streaming fallback)
 // ============================================
 async function handleExplanationRequest(term, sendResponse) {
   console.log(`[Hov3x Background] Handling request for term: "${term}"`);

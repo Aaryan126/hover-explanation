@@ -8,6 +8,7 @@ console.log("[Hov3x Popup] Popup script loaded");
 // DOM elements
 const cachedCountEl = document.getElementById('cached-count');
 const cacheSizeEl = document.getElementById('cache-size');
+const modelStatusEl = document.getElementById('model-status');
 const clearCacheBtn = document.getElementById('clear-cache');
 const themeToggle = document.getElementById('theme-toggle');
 const serviceToggle = document.getElementById('service-toggle');
@@ -20,6 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCacheStats();
   loadCurrentTheme();
   loadServiceState();
+  loadModelStatus();
+
+  // Poll model status every 2 seconds while loading
+  setInterval(loadModelStatus, 2000);
 });
 
 // ============================================
@@ -209,6 +214,42 @@ function applyServiceState(enabled) {
     toggle.classList.add('active');
   } else {
     toggle.classList.remove('active');
+  }
+}
+
+// ============================================
+// Model Status Management
+// ============================================
+
+async function loadModelStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: "getWebLLMStatus"
+    });
+
+    if (response && response.success) {
+      const status = response.status;
+
+      if (status.isReady) {
+        modelStatusEl.textContent = "✓ Ready";
+        modelStatusEl.style.color = "#00aa00";
+      } else if (status.isInitializing) {
+        modelStatusEl.textContent = "Loading...";
+        modelStatusEl.style.color = "#ff9900";
+      } else {
+        modelStatusEl.textContent = "Not Loaded";
+        modelStatusEl.style.color = "#666666";
+      }
+
+      console.log("[Hov3x Popup] Model status:", status);
+    } else {
+      modelStatusEl.textContent = "Unknown";
+      modelStatusEl.style.color = "#cc0000";
+    }
+  } catch (error) {
+    console.error("[Hov3x Popup] Error loading model status:", error);
+    modelStatusEl.textContent = "Error";
+    modelStatusEl.style.color = "#cc0000";
   }
 }
 
