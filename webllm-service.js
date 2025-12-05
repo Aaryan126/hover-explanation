@@ -6,9 +6,10 @@
 import * as webllm from "@mlc-ai/web-llm";
 
 // Configuration
-const MODEL_ID = "phi-2-q4f32_1-MLC"; // Phi-2 model (lowercase, ~1.2GB)
-const MAX_TOKENS = 300;
+const MODEL_ID = "phi-2-q4f16_1-MLC"; // Phi-2 q4f16 (~800MB, 30-40% faster)
+const MAX_TOKENS = 150; // Reduced for faster generation
 const TEMPERATURE = 0.7;
+const STREAM_THROTTLE_MS = 50; // Throttle stream updates for smoother display
 
 // State management
 let engine = null;
@@ -101,7 +102,7 @@ async function generateExplanation(term, progressCallback) {
 }
 
 // ============================================
-// Generate Explanation with Streaming
+// Generate Explanation with Streaming (Optimized)
 // ============================================
 async function generateExplanationStreaming(term, streamCallback, progressCallback) {
   try {
@@ -112,8 +113,8 @@ async function generateExplanationStreaming(term, streamCallback, progressCallba
 
     console.log(`[WebLLM] Generating streaming explanation for: "${term}"`);
 
-    // Create prompt
-    const prompt = `Explain this technical term in 1-2 simple, clear sentences: "${term}"`;
+    // Create prompt - shorter for faster generation
+    const prompt = `Explain "${term}" in 1-2 clear sentences.`;
 
     // Generate streaming response
     const stream = await engine.chat.completions.create({
@@ -127,17 +128,32 @@ async function generateExplanationStreaming(term, streamCallback, progressCallba
     });
 
     let fullText = "";
+    let lastUpdateTime = 0;
+    let pendingUpdate = false;
 
-    // Process stream chunks
+    // Process stream chunks with throttling
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || "";
       if (delta) {
         fullText += delta;
-        // Call callback with partial text
-        if (streamCallback) {
-          streamCallback(fullText);
+
+        // Throttle updates for smoother display
+        const now = Date.now();
+        if (now - lastUpdateTime >= STREAM_THROTTLE_MS) {
+          if (streamCallback) {
+            streamCallback(fullText);
+          }
+          lastUpdateTime = now;
+          pendingUpdate = false;
+        } else {
+          pendingUpdate = true;
         }
       }
+    }
+
+    // Send final update if there's a pending one
+    if (pendingUpdate && streamCallback) {
+      streamCallback(fullText);
     }
 
     console.log(`[WebLLM] Streaming complete: "${fullText}"`);

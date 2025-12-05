@@ -22,6 +22,8 @@
   transition: opacity 0.2s ease, transform 0.2s ease, background 0.3s ease, color 0.3s ease;
   word-wrap: break-word;
   border: 1px solid rgba(255, 255, 255, 0.3);
+  /* Smooth content updates for streaming */
+  will-change: contents;
 }
 
 /* Light Mode Theme */
@@ -75,6 +77,19 @@
 #hov3x-tooltip:has-text("Loading") {
   font-style: italic;
   opacity: 0.9;
+}
+
+/* Streaming animation - subtle cursor effect */
+.hov3x-streaming::after {
+  content: '▋';
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 0.7; }
+  51%, 100% { opacity: 0; }
 }
 
 /* Responsive adjustments */

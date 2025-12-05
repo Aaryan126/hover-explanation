@@ -5,6 +5,40 @@
 
 console.log("[Hov3x Content] Content script loaded");
 
+// ============================================
+// Keep-Alive Port Connection
+// ============================================
+let keepAlivePort = null;
+
+function establishKeepAliveConnection() {
+  try {
+    // Connect to background with keep-alive port
+    keepAlivePort = chrome.runtime.connect({ name: 'keepalive' });
+
+    keepAlivePort.onMessage.addListener((message) => {
+      if (message.type === 'ping') {
+        // Respond to ping to keep connection alive
+        console.log('[Hov3x Content] Received keep-alive ping');
+      }
+    });
+
+    keepAlivePort.onDisconnect.addListener(() => {
+      console.log('[Hov3x Content] Keep-alive port disconnected, reconnecting...');
+      // Reconnect after a short delay
+      setTimeout(establishKeepAliveConnection, 1000);
+    });
+
+    console.log('[Hov3x Content] Keep-alive port established');
+  } catch (error) {
+    console.error('[Hov3x Content] Error establishing keep-alive:', error);
+    // Retry after delay
+    setTimeout(establishKeepAliveConnection, 5000);
+  }
+}
+
+// Establish connection on load
+establishKeepAliveConnection();
+
 // Configuration
 const SELECTION_DELAY_MS = 300;
 const MIN_WORD_LENGTH = 3;
@@ -304,13 +338,19 @@ async function handleTextSelection(text, selection) {
 // ============================================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "streamChunk") {
-    // Update tooltip with partial text
+    // Update tooltip with partial text and add streaming indicator
+    if (tooltip) {
+      tooltip.classList.add('hov3x-streaming');
+    }
     updateTooltip(request.text);
     console.log(`[Hov3x Content] Stream chunk received: ${request.text.length} chars`);
   }
 
   if (request.action === "streamComplete") {
-    // Final update with complete explanation
+    // Remove streaming indicator and show final text
+    if (tooltip) {
+      tooltip.classList.remove('hov3x-streaming');
+    }
     updateTooltip(request.explanation);
     pendingRequests.delete(currentSelection);
     const cacheStatus = request.cached ? " (cached)" : "";
@@ -318,7 +358,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "streamError") {
-    // Handle error
+    // Remove streaming indicator and show error
+    if (tooltip) {
+      tooltip.classList.remove('hov3x-streaming');
+    }
     updateTooltip(`Error: ${request.error}`);
     pendingRequests.delete(currentSelection);
     console.error(`[Hov3x Content] Stream error:`, request.error);

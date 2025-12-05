@@ -15,6 +15,10 @@ import {
 const CACHE_EXPIRY_DAYS = 7;
 const CACHE_PREFIX = "explanation:";
 
+// Keep-alive configuration
+const KEEPALIVE_INTERVAL_MS = 20000; // Ping every 20 seconds
+let keepAliveInterval = null;
+
 console.log("[Hov3x Background] Service worker initialized with WebLLM");
 
 // Initialize WebLLM engine on startup
@@ -52,6 +56,80 @@ function startEngineInitialization() {
 
 // Start initialization immediately
 startEngineInitialization();
+
+// ============================================
+// Keep-Alive Mechanism
+// ============================================
+function startKeepAlive() {
+  // Clear any existing interval
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+
+  console.log("[Hov3x Background] Starting keep-alive pings");
+
+  // Send periodic pings to prevent service worker from sleeping
+  keepAliveInterval = setInterval(() => {
+    // Check if engine is ready
+    const status = getInitStatus();
+    console.log(`[Hov3x Background] Keep-alive ping - Engine ready: ${status.isReady}`);
+
+    // Update storage to keep it fresh
+    chrome.storage.local.set({
+      lastKeepAlive: Date.now(),
+      webllmReady: status.isReady
+    });
+
+    // If engine isn't ready and not initializing, restart initialization
+    if (!status.isReady && !status.isInitializing) {
+      console.log("[Hov3x Background] Engine lost, restarting initialization...");
+      engineInitPromise = null; // Reset promise
+      startEngineInitialization();
+    }
+  }, KEEPALIVE_INTERVAL_MS);
+}
+
+// Start keep-alive after a short delay
+setTimeout(startKeepAlive, 5000);
+
+// Listen for when service worker is about to be terminated
+self.addEventListener('beforeunload', () => {
+  console.log("[Hov3x Background] Service worker terminating");
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+});
+
+// ============================================
+// Port-based Keep-Alive (Alternative Method)
+// ============================================
+// Listen for long-lived connections from content scripts
+const connectedPorts = new Set();
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'keepalive') {
+    connectedPorts.add(port);
+    console.log(`[Hov3x Background] Keep-alive port connected (${connectedPorts.size} total)`);
+
+    port.onDisconnect.addListener(() => {
+      connectedPorts.delete(port);
+      console.log(`[Hov3x Background] Keep-alive port disconnected (${connectedPorts.size} remaining)`);
+    });
+
+    // Send periodic pings through the port
+    const portPingInterval = setInterval(() => {
+      try {
+        port.postMessage({ type: 'ping', timestamp: Date.now() });
+      } catch (error) {
+        clearInterval(portPingInterval);
+      }
+    }, 25000); // Every 25 seconds
+
+    port.onDisconnect.addListener(() => {
+      clearInterval(portPingInterval);
+    });
+  }
+});
 
 // ============================================
 // Message Listener
