@@ -26,6 +26,11 @@ let activeStreamingRequest = null;
 let requestQueue = [];
 let isProcessingRequest = false;
 
+// Timeout mechanism to abandon slow requests
+const ABANDON_TIMEOUT_MS = 2000; // Abandon after 2 seconds if new request comes
+let currentProcessingTimeout = null;
+let abandonedRequests = new Set(); // Track abandoned request IDs
+
 console.log("[Hov3x Background] Service worker initialized with WebLLM");
 
 // Initialize WebLLM engine on startup
@@ -232,6 +237,23 @@ function queueStreamingRequest(term, tabId, requestId) {
 
   if (isProcessingRequest) {
     console.log(`[Hov3x Background] WebLLM busy, queued latest request. Will process after current completes (ID: ${requestId})`);
+
+    // TIMEOUT LOGIC: Set timeout to abandon current request if it takes too long
+    if (currentProcessingTimeout) {
+      clearTimeout(currentProcessingTimeout);
+    }
+
+    currentProcessingTimeout = setTimeout(() => {
+      if (activeStreamingRequest && !activeStreamingRequest.cancelled) {
+        console.log(`[Hov3x Background] ⏱️ TIMEOUT: Abandoning slow request (ID: ${activeStreamingRequest.requestId})`);
+        abandonedRequests.add(activeStreamingRequest.requestId);
+        activeStreamingRequest.abandoned = true;
+        activeStreamingRequest.cancelled = true; // Also mark as cancelled to stop sending updates
+      }
+      currentProcessingTimeout = null;
+    }, ABANDON_TIMEOUT_MS);
+
+    console.log(`[Hov3x Background] ⏱️ Set ${ABANDON_TIMEOUT_MS}ms timeout for current request`);
   } else {
     console.log(`[Hov3x Background] WebLLM ready, processing immediately (ID: ${requestId})`);
     processNextRequest();
@@ -249,6 +271,12 @@ async function processNextRequest() {
   if (requestQueue.length === 0) {
     console.log(`[Hov3x Background] Queue empty, nothing to process`);
     return;
+  }
+
+  // Clear any existing timeout since we're starting a new request
+  if (currentProcessingTimeout) {
+    clearTimeout(currentProcessingTimeout);
+    currentProcessingTimeout = null;
   }
 
   // Get the next request and mark as processing
@@ -387,17 +415,26 @@ async function handleExplanationRequestStreaming(term, tabId, requestId) {
       () => requestTracker.cancelled // Pass cancellation check function
     );
 
-    // Check if cancelled before caching
-    if (requestTracker.cancelled) {
-      console.log(`[Hov3x Background] Request cancelled, not caching (ID: ${requestId})`);
+    // Check if cancelled or abandoned before caching
+    const wasAbandoned = abandonedRequests.has(requestId);
+
+    if (requestTracker.cancelled || requestTracker.abandoned || wasAbandoned) {
+      const reason = wasAbandoned ? 'abandoned (timeout)' : 'cancelled';
+      console.log(`[Hov3x Background] ⏱️ Request ${reason}, not caching (ID: ${requestId})`);
+
+      // Clean up abandoned request tracking
+      if (wasAbandoned) {
+        abandonedRequests.delete(requestId);
+      }
+
       return;
     }
 
-    // Cache the result
+    // Cache the result (only for successful, non-abandoned requests)
     await cacheExplanation(term, fullExplanation);
 
     // Send completion message only if not cancelled
-    if (!requestTracker.cancelled) {
+    if (!requestTracker.cancelled && !requestTracker.abandoned) {
       safeSendMessage(tabId, {
         action: "streamComplete",
         explanation: fullExplanation,
