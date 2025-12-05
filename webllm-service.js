@@ -104,11 +104,17 @@ async function generateExplanation(term, progressCallback) {
 // ============================================
 // Generate Explanation with Streaming (Optimized)
 // ============================================
-async function generateExplanationStreaming(term, streamCallback, progressCallback) {
+async function generateExplanationStreaming(term, streamCallback, progressCallback, isCancelledFn) {
   try {
     // Initialize engine if not ready
     if (!isReady) {
       await initializeEngine(progressCallback);
+    }
+
+    // Check if cancelled before starting
+    if (isCancelledFn && isCancelledFn()) {
+      console.log(`[WebLLM] Request cancelled before generation started for: "${term}"`);
+      return "";
     }
 
     console.log(`[WebLLM] Generating streaming explanation for: "${term}"`);
@@ -131,24 +137,39 @@ async function generateExplanationStreaming(term, streamCallback, progressCallba
     let lastUpdateTime = 0;
     let pendingUpdate = false;
 
-    // Process stream chunks with throttling
+    // Process stream chunks with throttling and cancellation checks
+    // NOTE: We cannot abort the WebLLM stream mid-processing, so we consume all chunks
+    // but only send updates if not cancelled
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || "";
       if (delta) {
         fullText += delta;
 
-        // Throttle updates for smoother display
-        const now = Date.now();
-        if (now - lastUpdateTime >= STREAM_THROTTLE_MS) {
-          if (streamCallback) {
-            streamCallback(fullText);
+        // Only send updates if not cancelled
+        if (!isCancelledFn || !isCancelledFn()) {
+          // Throttle updates for smoother display
+          const now = Date.now();
+          if (now - lastUpdateTime >= STREAM_THROTTLE_MS) {
+            if (streamCallback) {
+              streamCallback(fullText);
+            }
+            lastUpdateTime = now;
+            pendingUpdate = false;
+          } else {
+            pendingUpdate = true;
           }
-          lastUpdateTime = now;
-          pendingUpdate = false;
         } else {
-          pendingUpdate = true;
+          // Request was cancelled, but we still need to consume the stream
+          // Just don't send updates
+          pendingUpdate = false;
         }
       }
+    }
+
+    // Check if cancelled before final update
+    if (isCancelledFn && isCancelledFn()) {
+      console.log(`[WebLLM] Request cancelled, discarding result for: "${term}"`);
+      return fullText.trim();
     }
 
     // Send final update if there's a pending one

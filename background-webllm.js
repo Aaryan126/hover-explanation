@@ -19,6 +19,13 @@ const CACHE_PREFIX = "explanation:";
 const KEEPALIVE_INTERVAL_MS = 20000; // Ping every 20 seconds
 let keepAliveInterval = null;
 
+// Track active streaming requests for cancellation
+let activeStreamingRequest = null;
+
+// Request queue to handle WebLLM's single-threaded nature
+let requestQueue = [];
+let isProcessingRequest = false;
+
 console.log("[Hov3x Background] Service worker initialized with WebLLM");
 
 // Initialize WebLLM engine on startup
@@ -143,7 +150,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "getExplanationStreaming") {
-    handleExplanationRequestStreaming(request.term, sender.tab.id);
+    queueStreamingRequest(request.term, sender.tab.id, request.requestId);
     return false; // Streaming handled via separate messages
   }
 
@@ -198,10 +205,109 @@ async function initializeWebLLM(sendResponse) {
 }
 
 // ============================================
+// Helper: Safe Message Sending
+// ============================================
+function safeSendMessage(tabId, message) {
+  try {
+    chrome.tabs.sendMessage(tabId, message);
+  } catch (error) {
+    console.error(`[Hov3x Background] Failed to send message to tab ${tabId}:`, error);
+  }
+}
+
+// ============================================
+// Queue Management for Single-Threaded WebLLM
+// ============================================
+function queueStreamingRequest(term, tabId, requestId) {
+  console.log(`[Hov3x Background] Queueing request for: "${term}" (ID: ${requestId})`);
+
+  // Clear the entire queue when a new request comes in
+  // This ensures only the latest request is processed
+  requestQueue = [{
+    term: term,
+    tabId: tabId,
+    requestId: requestId,
+    timestamp: Date.now()
+  }];
+
+  if (isProcessingRequest) {
+    console.log(`[Hov3x Background] WebLLM busy, queued latest request. Will process after current completes (ID: ${requestId})`);
+  } else {
+    console.log(`[Hov3x Background] WebLLM ready, processing immediately (ID: ${requestId})`);
+    processNextRequest();
+  }
+}
+
+async function processNextRequest() {
+  // If already processing, return (will be called again when current finishes)
+  if (isProcessingRequest) {
+    console.log(`[Hov3x Background] Already processing, skipping`);
+    return;
+  }
+
+  // If queue is empty, nothing to do
+  if (requestQueue.length === 0) {
+    console.log(`[Hov3x Background] Queue empty, nothing to process`);
+    return;
+  }
+
+  // Get the next request and mark as processing
+  const request = requestQueue[0];
+  isProcessingRequest = true;
+
+  console.log(`[Hov3x Background] Starting to process request for: "${request.term}" (ID: ${request.requestId})`);
+
+  try {
+    await handleExplanationRequestStreaming(request.term, request.tabId, request.requestId);
+  } catch (error) {
+    console.error(`[Hov3x Background] Error processing request:`, error);
+    // Send error to content script
+    safeSendMessage(request.tabId, {
+      action: "streamError",
+      error: error.message || "Failed to generate explanation",
+      requestId: request.requestId
+    });
+  } finally {
+    // CRITICAL FIX: Only remove if this request is still at the front of the queue
+    // (queue might have been replaced with a new request while we were processing)
+    if (requestQueue.length > 0 && requestQueue[0].requestId === request.requestId) {
+      console.log(`[Hov3x Background] Removing completed request from queue (ID: ${request.requestId})`);
+      requestQueue.shift();
+    } else {
+      console.log(`[Hov3x Background] Request was replaced while processing, queue already updated`);
+    }
+
+    isProcessingRequest = false;
+
+    console.log(`[Hov3x Background] Finished processing. Queue length: ${requestQueue.length}`);
+
+    // Process next request if any
+    if (requestQueue.length > 0) {
+      console.log(`[Hov3x Background] Processing next queued request...`);
+      // Use setTimeout to avoid deep recursion and give other tasks a chance
+      setTimeout(() => processNextRequest(), 0);
+    }
+  }
+}
+
+// ============================================
 // Main Handler: Get Explanation (Streaming)
 // ============================================
-async function handleExplanationRequestStreaming(term, tabId) {
-  console.log(`[Hov3x Background] Handling streaming request for term: "${term}"`);
+async function handleExplanationRequestStreaming(term, tabId, requestId) {
+  console.log(`[Hov3x Background] Handling streaming request for term: "${term}" (ID: ${requestId})`);
+
+  // Cancel any active streaming request
+  if (activeStreamingRequest) {
+    console.log(`[Hov3x Background] Cancelling previous request: ${activeStreamingRequest.requestId}`);
+    activeStreamingRequest.cancelled = true;
+  }
+
+  // Create new request tracker
+  const requestTracker = {
+    requestId: requestId,
+    cancelled: false
+  };
+  activeStreamingRequest = requestTracker;
 
   try {
     // Check if service is enabled
@@ -210,10 +316,13 @@ async function handleExplanationRequestStreaming(term, tabId) {
 
     if (!serviceEnabled) {
       console.log(`[Hov3x Background] Service is disabled, ignoring request`);
-      chrome.tabs.sendMessage(tabId, {
-        action: "streamError",
-        error: "Service is disabled"
-      });
+      if (!requestTracker.cancelled) {
+        safeSendMessage(tabId, {
+          action: "streamError",
+          error: "Service is disabled",
+          requestId: requestId
+        });
+      }
       return;
     }
 
@@ -221,59 +330,99 @@ async function handleExplanationRequestStreaming(term, tabId) {
     const cached = await getCachedExplanation(term);
     if (cached) {
       console.log(`[Hov3x Background] Cache hit for: "${term}"`);
-      chrome.tabs.sendMessage(tabId, {
-        action: "streamComplete",
-        explanation: cached.text,
-        cached: true
-      });
+      if (!requestTracker.cancelled) {
+        safeSendMessage(tabId, {
+          action: "streamComplete",
+          explanation: cached.text,
+          cached: true,
+          requestId: requestId
+        });
+      }
       return;
     }
 
     console.log(`[Hov3x Background] Cache miss for: "${term}". Generating with WebLLM streaming...`);
 
+    // Check if cancelled before initialization
+    if (requestTracker.cancelled) {
+      console.log(`[Hov3x Background] Request cancelled before engine init (ID: ${requestId})`);
+      return;
+    }
+
     // Ensure engine is initialized
     if (!isEngineReady()) {
       console.log(`[Hov3x Background] Engine not ready, waiting...`);
-      chrome.tabs.sendMessage(tabId, {
-        action: "streamChunk",
-        text: "Initializing model..."
-      });
+      if (!requestTracker.cancelled) {
+        safeSendMessage(tabId, {
+          action: "streamChunk",
+          text: "Initializing model...",
+          requestId: requestId
+        });
+      }
       await startEngineInitialization();
+    }
+
+    // Check if cancelled after initialization
+    if (requestTracker.cancelled) {
+      console.log(`[Hov3x Background] Request cancelled after engine init (ID: ${requestId})`);
+      return;
     }
 
     // Generate explanation with streaming
     const fullExplanation = await generateExplanationStreaming(
       term,
       (partialText) => {
-        // Send stream chunks to content script
-        chrome.tabs.sendMessage(tabId, {
-          action: "streamChunk",
-          text: partialText
-        });
+        // Only send chunks if not cancelled
+        if (!requestTracker.cancelled) {
+          safeSendMessage(tabId, {
+            action: "streamChunk",
+            text: partialText,
+            requestId: requestId
+          });
+        }
       },
       (progress) => {
         console.log(`[Hov3x Background] Generation progress: ${progress.text}`);
-      }
+      },
+      () => requestTracker.cancelled // Pass cancellation check function
     );
+
+    // Check if cancelled before caching
+    if (requestTracker.cancelled) {
+      console.log(`[Hov3x Background] Request cancelled, not caching (ID: ${requestId})`);
+      return;
+    }
 
     // Cache the result
     await cacheExplanation(term, fullExplanation);
 
-    // Send completion message
-    chrome.tabs.sendMessage(tabId, {
-      action: "streamComplete",
-      explanation: fullExplanation,
-      cached: false
-    });
+    // Send completion message only if not cancelled
+    if (!requestTracker.cancelled) {
+      safeSendMessage(tabId, {
+        action: "streamComplete",
+        explanation: fullExplanation,
+        cached: false,
+        requestId: requestId
+      });
+    }
 
-    console.log(`[Hov3x Background] Successfully generated and cached: "${term}"`);
+    console.log(`[Hov3x Background] Successfully generated and cached: "${term}" (ID: ${requestId})`);
 
   } catch (error) {
     console.error(`[Hov3x Background] Error in streaming explanation:`, error);
-    chrome.tabs.sendMessage(tabId, {
-      action: "streamError",
-      error: error.message || "Failed to generate explanation"
-    });
+    // Only send error if not cancelled
+    if (!requestTracker.cancelled) {
+      safeSendMessage(tabId, {
+        action: "streamError",
+        error: error.message || "Failed to generate explanation",
+        requestId: requestId
+      });
+    }
+  } finally {
+    // Clear active request if this was the active one
+    if (activeStreamingRequest === requestTracker) {
+      activeStreamingRequest = null;
+    }
   }
 }
 

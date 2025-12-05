@@ -12,6 +12,12 @@ let keepAlivePort = null;
 
 function establishKeepAliveConnection() {
   try {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      console.log('[Hov3x Content] Extension context invalidated, cannot establish keep-alive');
+      return;
+    }
+
     // Connect to background with keep-alive port
     keepAlivePort = chrome.runtime.connect({ name: 'keepalive' });
 
@@ -24,15 +30,27 @@ function establishKeepAliveConnection() {
 
     keepAlivePort.onDisconnect.addListener(() => {
       console.log('[Hov3x Content] Keep-alive port disconnected, reconnecting...');
-      // Reconnect after a short delay
-      setTimeout(establishKeepAliveConnection, 1000);
+      // Check if context is still valid before reconnecting
+      if (chrome.runtime?.id) {
+        setTimeout(establishKeepAliveConnection, 1000);
+      } else {
+        console.log('[Hov3x Content] Extension context invalidated, not reconnecting');
+      }
     });
 
     console.log('[Hov3x Content] Keep-alive port established');
   } catch (error) {
+    // Check if the error is due to extension context invalidation
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.log('[Hov3x Content] Extension context invalidated, please refresh the page');
+      return;
+    }
+
     console.error('[Hov3x Content] Error establishing keep-alive:', error);
-    // Retry after delay
-    setTimeout(establishKeepAliveConnection, 5000);
+    // Only retry if context is still valid
+    if (chrome.runtime?.id) {
+      setTimeout(establishKeepAliveConnection, 5000);
+    }
   }
 }
 
@@ -53,6 +71,9 @@ let currentTheme = 'dark'; // 'dark' or 'light'
 
 // Pending requests to prevent spam
 let pendingRequests = new Set();
+
+// Track active request to enable cancellation
+let activeRequestId = null;
 
 // ============================================
 // Initialize Tooltip
@@ -215,15 +236,10 @@ function processSelection(event) {
     return;
   }
 
-  // Ignore if same text is already being processed
-  if (currentSelection === selectedText.toLowerCase()) {
-    return;
-  }
-
   // Clean the selected text (remove extra whitespace, newlines)
   const cleanedText = selectedText.replace(/\s+/g, ' ').trim();
 
-  // Process the selection
+  // Always process new selection (even if same text) to cancel any active stream
   handleTextSelection(cleanedText, selection);
 }
 
@@ -283,20 +299,43 @@ function parseMarkdown(text) {
 async function handleTextSelection(text, selection) {
   console.log(`[Hov3x Content] Selected text: "${text}"`);
 
+  // Check if extension context is valid FIRST
+  if (!chrome.runtime?.id) {
+    console.error('[Hov3x Content] Extension context invalidated. Please refresh the page.');
+    initializeTooltip();
+    showTooltip("Extension reloaded. Please refresh this page (F5).", getSelectionPosition());
+    return;
+  }
+
   // Check if service is enabled
-  const serviceState = await chrome.storage.local.get(['serviceEnabled']);
-  const serviceEnabled = serviceState.serviceEnabled !== undefined ? serviceState.serviceEnabled : true;
+  try {
+    const serviceState = await chrome.storage.local.get(['serviceEnabled']);
+    const serviceEnabled = serviceState.serviceEnabled !== undefined ? serviceState.serviceEnabled : true;
 
-  if (!serviceEnabled) {
-    console.log(`[Hov3x Content] Service is disabled, ignoring selection`);
-    return;
+    if (!serviceEnabled) {
+      console.log(`[Hov3x Content] Service is disabled, ignoring selection`);
+      return;
+    }
+  } catch (error) {
+    console.error('[Hov3x Content] Failed to check service state:', error);
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      initializeTooltip();
+      showTooltip("Extension reloaded. Please refresh this page (F5).", getSelectionPosition());
+      return;
+    }
   }
 
-  // Prevent duplicate requests
-  if (pendingRequests.has(text.toLowerCase())) {
-    console.log(`[Hov3x Content] Request already pending for: "${text}"`);
-    return;
+  // Generate unique request ID
+  const requestId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+  // Cancel any active request by updating the active request ID
+  if (activeRequestId) {
+    console.log(`[Hov3x Content] Cancelling previous request: ${activeRequestId}`);
   }
+  activeRequestId = requestId;
+
+  // Clear pending requests for previous term
+  pendingRequests.clear();
 
   // Initialize tooltip if needed
   initializeTooltip();
@@ -312,21 +351,31 @@ async function handleTextSelection(text, selection) {
   currentSelection = text.toLowerCase();
 
   try {
-    // Request streaming explanation from background script
+    // Double-check extension context before sending
+    if (!chrome.runtime?.id) {
+      throw new Error("Extension context invalidated");
+    }
+
+    // Request streaming explanation from background script with request ID
     chrome.runtime.sendMessage({
       action: "getExplanationStreaming",
-      term: text
+      term: text,
+      requestId: requestId
     });
 
-    console.log(`[Hov3x Content] Streaming request sent for: "${text}"`);
+    console.log(`[Hov3x Content] Streaming request sent for: "${text}" (ID: ${requestId})`);
 
   } catch (error) {
     console.error(`[Hov3x Content] Failed to request streaming explanation:`, error);
-    pendingRequests.delete(text.toLowerCase());
+
+    // Only clear if this is still the active request
+    if (activeRequestId === requestId) {
+      pendingRequests.delete(text.toLowerCase());
+    }
 
     // Check if extension context was invalidated
     if (error.message && error.message.includes("Extension context invalidated")) {
-      updateTooltip("Extension reloaded. Please refresh this page.");
+      updateTooltip("Extension reloaded. Please refresh this page (F5).");
     } else {
       updateTooltip("Failed to load explanation");
     }
@@ -337,34 +386,46 @@ async function handleTextSelection(text, selection) {
 // Message Listener for Streaming Responses
 // ============================================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Ignore messages from outdated requests
+  if (request.requestId && request.requestId !== activeRequestId) {
+    console.log(`[Hov3x Content] Ignoring outdated response (ID: ${request.requestId}, current: ${activeRequestId})`);
+    return;
+  }
+
   if (request.action === "streamChunk") {
-    // Update tooltip with partial text and add streaming indicator
-    if (tooltip) {
-      tooltip.classList.add('hov3x-streaming');
+    // Only update if this is still the active request
+    if (request.requestId === activeRequestId) {
+      if (tooltip) {
+        tooltip.classList.add('hov3x-streaming');
+      }
+      updateTooltip(request.text);
+      console.log(`[Hov3x Content] Stream chunk received: ${request.text.length} chars (ID: ${request.requestId})`);
     }
-    updateTooltip(request.text);
-    console.log(`[Hov3x Content] Stream chunk received: ${request.text.length} chars`);
   }
 
   if (request.action === "streamComplete") {
-    // Remove streaming indicator and show final text
-    if (tooltip) {
-      tooltip.classList.remove('hov3x-streaming');
+    // Only complete if this is still the active request
+    if (request.requestId === activeRequestId) {
+      if (tooltip) {
+        tooltip.classList.remove('hov3x-streaming');
+      }
+      updateTooltip(request.explanation);
+      pendingRequests.delete(currentSelection);
+      const cacheStatus = request.cached ? " (cached)" : "";
+      console.log(`[Hov3x Content] Stream complete${cacheStatus} (ID: ${request.requestId})`);
     }
-    updateTooltip(request.explanation);
-    pendingRequests.delete(currentSelection);
-    const cacheStatus = request.cached ? " (cached)" : "";
-    console.log(`[Hov3x Content] Stream complete${cacheStatus}: "${request.explanation}"`);
   }
 
   if (request.action === "streamError") {
-    // Remove streaming indicator and show error
-    if (tooltip) {
-      tooltip.classList.remove('hov3x-streaming');
+    // Only show error if this is still the active request
+    if (request.requestId === activeRequestId) {
+      if (tooltip) {
+        tooltip.classList.remove('hov3x-streaming');
+      }
+      updateTooltip(`Error: ${request.error}`);
+      pendingRequests.delete(currentSelection);
+      console.error(`[Hov3x Content] Stream error (ID: ${request.requestId}):`, request.error);
     }
-    updateTooltip(`Error: ${request.error}`);
-    pendingRequests.delete(currentSelection);
-    console.error(`[Hov3x Content] Stream error:`, request.error);
   }
 });
 
