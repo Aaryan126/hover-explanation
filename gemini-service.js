@@ -8,7 +8,7 @@ const GEMINI_API_KEY = "AIzaSyBQbur7BspRkLLDvtv3vpj2FVKWiqDEF0U";
 const GEMINI_MODEL = "gemini-2.0-flash";
 const MAX_TOKENS = 150;
 const TEMPERATURE = 0.7;
-const STREAM_THROTTLE_MS = 50; // Throttle stream updates for smoother display
+const ARTIFICIAL_STREAM_DELAY_MS = 150; // Delay between character chunks for artificial streaming
 
 // ============================================
 // Generate Explanation with Streaming
@@ -57,33 +57,27 @@ async function generateExplanationStreaming(term, streamCallback, isCancelledFn)
       throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
     }
 
-    // Process streaming response (array of JSON objects separated by commas)
+    // First, fetch the complete response from Gemini
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let fullText = "";
-    let lastUpdateTime = 0;
-    let pendingUpdate = false;
+    let completeResponse = "";
     let buffer = "";
 
+    // Read the entire response
     while (true) {
       const { done, value } = await reader.read();
 
       if (done) break;
 
-      // Decode chunk and add to buffer
       buffer += decoder.decode(value, { stream: true });
 
-      // Try to extract complete JSON objects from buffer
-      // Gemini streams as: [{...}, {...}, ...]
-      // We need to find complete objects between commas
+      // Extract complete JSON objects
       let startIdx = 0;
 
       while (true) {
-        // Find the start of a JSON object
         const objStart = buffer.indexOf('{', startIdx);
         if (objStart === -1) break;
 
-        // Try to find the matching closing brace
         let braceCount = 0;
         let objEnd = -1;
 
@@ -97,72 +91,68 @@ async function generateExplanationStreaming(term, streamCallback, isCancelledFn)
           }
         }
 
-        // If we found a complete object
         if (objEnd !== -1) {
           const jsonStr = buffer.substring(objStart, objEnd);
 
           try {
             const json = JSON.parse(jsonStr);
 
-            // Extract text from response
             if (json.candidates && json.candidates[0]?.content?.parts) {
               for (const part of json.candidates[0].content.parts) {
                 if (part.text) {
-                  fullText += part.text;
-
-                  // Only send updates if not cancelled
-                  if (!isCancelledFn || !isCancelledFn()) {
-                    // Throttle updates for smoother display
-                    const now = Date.now();
-                    if (now - lastUpdateTime >= STREAM_THROTTLE_MS) {
-                      if (streamCallback) {
-                        streamCallback(fullText);
-                      }
-                      lastUpdateTime = now;
-                      pendingUpdate = false;
-                    } else {
-                      pendingUpdate = true;
-                    }
-                  } else {
-                    // Request was cancelled, stop processing
-                    pendingUpdate = false;
-                    console.log(`[Gemini] Request cancelled during streaming for: "${term}"`);
-                    return fullText.trim();
-                  }
+                  completeResponse += part.text;
                 }
               }
             }
           } catch (parseError) {
-            // Skip invalid JSON
             console.warn(`[Gemini] Parse error:`, parseError.message);
           }
 
-          // Move past this object
-          startIdx = objEnd;
-
-          // Remove processed part from buffer
           buffer = buffer.substring(objEnd);
           startIdx = 0;
         } else {
-          // No complete object found, wait for more data
           break;
         }
       }
     }
 
-    // Check if cancelled before final update
+    // Check if cancelled after fetching
     if (isCancelledFn && isCancelledFn()) {
-      console.log(`[Gemini] Request cancelled, discarding result for: "${term}"`);
-      return fullText.trim();
+      console.log(`[Gemini] Request cancelled after fetch for: "${term}"`);
+      return completeResponse.trim();
     }
 
-    // Send final update if there's a pending one
-    if (pendingUpdate && streamCallback) {
-      streamCallback(fullText);
+    // Now artificially stream the response character-by-character
+    console.log(`[Gemini] Starting artificial streaming for: "${term}"`);
+    const chunkSize = 5; // Send 3 characters at a time for smoother effect
+    let streamedText = "";
+
+    for (let i = 0; i < completeResponse.length; i += chunkSize) {
+      // Check if cancelled during artificial streaming
+      if (isCancelledFn && isCancelledFn()) {
+        console.log(`[Gemini] Request cancelled during artificial streaming for: "${term}"`);
+        return streamedText.trim();
+      }
+
+      // Get next chunk
+      streamedText = completeResponse.substring(0, i + chunkSize);
+
+      // Send update
+      if (streamCallback) {
+        streamCallback(streamedText);
+      }
+
+      // Wait before next chunk
+      await new Promise(resolve => setTimeout(resolve, ARTIFICIAL_STREAM_DELAY_MS));
     }
 
-    console.log(`[Gemini] Streaming complete: "${fullText}"`);
-    return fullText.trim();
+    // Send final complete text
+    if (streamCallback && streamedText !== completeResponse) {
+      streamCallback(completeResponse);
+    }
+
+    console.log(`[Gemini] Streaming complete: "${completeResponse}"`);
+    return completeResponse.trim();
 
   } catch (error) {
     console.error("[Gemini] Error generating streaming explanation:", error);
