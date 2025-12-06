@@ -123,6 +123,10 @@ chrome.storage.local.get(['tooltipTheme'], (result) => {
   if (result.tooltipTheme) {
     currentTheme = result.tooltipTheme;
     console.log(`[Hov3x Content] Loaded theme: ${currentTheme}`);
+  } else {
+    // If no theme is stored, save the default theme
+    chrome.storage.local.set({ tooltipTheme: currentTheme });
+    console.log(`[Hov3x Content] Initialized theme to default: ${currentTheme}`);
   }
 });
 
