@@ -11,6 +11,10 @@ import {
   getInitStatus
 } from './webllm-service.js';
 
+import {
+  generateExplanationStreaming as generateExplanationStreamingGemini
+} from './gemini-service.js';
+
 // Cache configuration
 const CACHE_EXPIRY_DAYS = 7;
 const CACHE_PREFIX = "explanation:";
@@ -369,51 +373,71 @@ async function handleExplanationRequestStreaming(term, tabId, requestId) {
       return;
     }
 
-    console.log(`[Hov3x Background] Cache miss for: "${term}". Generating with WebLLM streaming...`);
+    console.log(`[Hov3x Background] Cache miss for: "${term}". Generating with streaming...`);
 
-    // Check if cancelled before initialization
+    // Check if cancelled before generation
     if (requestTracker.cancelled) {
-      console.log(`[Hov3x Background] Request cancelled before engine init (ID: ${requestId})`);
+      console.log(`[Hov3x Background] Request cancelled before generation (ID: ${requestId})`);
       return;
     }
 
-    // Ensure engine is initialized
-    if (!isEngineReady()) {
-      console.log(`[Hov3x Background] Engine not ready, waiting...`);
+    let fullExplanation;
+    const phi2Ready = isEngineReady();
+
+    // Use Gemini as fallback if Phi-2 is not ready yet
+    if (!phi2Ready) {
+      console.log(`[Hov3x Background] Phi-2 not ready, using Gemini API as fallback...`);
+
+      // Notify user we're using Gemini (optional)
       if (!requestTracker.cancelled) {
         safeSendMessage(tabId, {
           action: "streamChunk",
-          text: "Initializing model...",
+          text: "Loading...",
           requestId: requestId
         });
       }
-      await startEngineInitialization();
-    }
 
-    // Check if cancelled after initialization
-    if (requestTracker.cancelled) {
-      console.log(`[Hov3x Background] Request cancelled after engine init (ID: ${requestId})`);
-      return;
-    }
+      // Generate explanation with Gemini streaming
+      fullExplanation = await generateExplanationStreamingGemini(
+        term,
+        (partialText) => {
+          // Only send chunks if not cancelled
+          if (!requestTracker.cancelled) {
+            safeSendMessage(tabId, {
+              action: "streamChunk",
+              text: partialText,
+              requestId: requestId
+            });
+          }
+        },
+        () => requestTracker.cancelled // Pass cancellation check function
+      );
 
-    // Generate explanation with streaming
-    const fullExplanation = await generateExplanationStreaming(
-      term,
-      (partialText) => {
-        // Only send chunks if not cancelled
-        if (!requestTracker.cancelled) {
-          safeSendMessage(tabId, {
-            action: "streamChunk",
-            text: partialText,
-            requestId: requestId
-          });
-        }
-      },
-      (progress) => {
-        console.log(`[Hov3x Background] Generation progress: ${progress.text}`);
-      },
-      () => requestTracker.cancelled // Pass cancellation check function
-    );
+      console.log(`[Hov3x Background] Gemini generation complete for: "${term}"`);
+    } else {
+      console.log(`[Hov3x Background] Phi-2 ready, using local model...`);
+
+      // Generate explanation with Phi-2 streaming
+      fullExplanation = await generateExplanationStreaming(
+        term,
+        (partialText) => {
+          // Only send chunks if not cancelled
+          if (!requestTracker.cancelled) {
+            safeSendMessage(tabId, {
+              action: "streamChunk",
+              text: partialText,
+              requestId: requestId
+            });
+          }
+        },
+        (progress) => {
+          console.log(`[Hov3x Background] Generation progress: ${progress.text}`);
+        },
+        () => requestTracker.cancelled // Pass cancellation check function
+      );
+
+      console.log(`[Hov3x Background] Phi-2 generation complete for: "${term}"`);
+    }
 
     // Check if cancelled or abandoned before caching
     const wasAbandoned = abandonedRequests.has(requestId);
